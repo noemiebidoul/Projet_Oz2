@@ -1,0 +1,194 @@
+%% Main %%
+functor
+import
+   GUI
+   Input
+   PlayerManager
+   Browser
+   OS
+define
+   WindowPort
+   InitPlayers
+   FirstSpawns
+   Pacmans
+   Ghosts
+   Order
+   Shuffle
+   Nth
+in
+
+   fun {Nth L N E}
+      case L
+      of nil then nil
+      [] H|T then
+	 if N==1 then
+	    E = H
+	    T
+	 else
+	    H|{Nth T N-1 E}
+	 end
+      end
+   end
+
+   fun {Shuffle L Length}
+      local E Tail N in
+	 case L
+	 of nil then nil
+	 else
+	    N = ({OS.rand} mod Length) + 1
+	    Tail = {Nth L N E}
+	    E|{Shuffle Tail Length-1}
+	 end
+      end
+   end   
+
+   % @PRE:  'Kind' le type de joueurs dont on souhaite générer les ID
+   % ('P' pour les pacman, 'G' pour les ghost)
+   %
+   % @RETURN: Liste permettant d'identifier et contacter chaque
+   % joueur du type précisé.
+   % Chaque élément est un tuple de forme 'port#ID'
+   % où 'port' est le port permettant de contacter le joueur
+   %    'ID' est l'ID de type <pacman>/<ghost du joueur
+
+   fun {InitPlayers Kind}
+      local Aux in
+	 
+	 fun {Aux L I}
+	    local ID Port in
+	       case L
+	       of nil#nil then nil
+	       [] (K|T1)#(C|T2) then
+		  if Kind=='P' then
+		     ID = pacman(id:I color:C name:p)
+		  else
+		     ID = ghost(id:I color:C name:g)
+		  end
+		  Port = {PlayerManager.playerGenerator K ID}
+		  Port#ID|{Aux T1#T2 I+1}
+	       end
+	    end
+	 end
+	 
+	 if Kind=='P' then
+	    {Aux Input.pacman#Input.colorPacman 1}
+	 else
+	    {Aux Input.ghost#Input.colorGhost 1}
+	 end
+	 
+      end
+   end
+
+   proc {FirstSpawns Map WindowPort ToSpawnP ToSpawnG}
+      local HandlePos SpawnColumn SpawnRow in
+
+	 proc {HandlePos H P}
+	    local ID Pos in
+
+	       % Walkable place i.e. spawn for point
+	       if H==0 then
+		  {Send WindowPort initPoint(P)}
+		  {Send WindowPort spawnPoint(P)}
+
+               % Spawn for pacman  
+	       elseif H==2 then
+		  case @ToSpawnP
+		  of nil then skip % Each pacman already has a spawn
+		  [] (P1|P2) then
+		     {Send WindowPort initPacman(P1.2)}
+		     {Send WindowPort spawnPacman(P1.2 P)}
+		     {Send P1.1 assignSpawn(P)}
+		     {Send P1.1 spawn(ID Pos)}
+
+		     ToSpawnP := P2
+		  
+		  end
+
+	       % Spawn for ghost
+	       elseif H==3 then
+		  case @ToSpawnG
+		  of nil then skip % Each ghost already has a spawn
+		  [] G1|G2 then
+		     {Send WindowPort initGhost(G1.2)}
+		     {Send WindowPort spawnGhost(G1.2 P)}
+		     {Send G1.1 assignSpawn(P)}
+		     {Send G1.1 spawn(ID Pos)}
+
+		     ToSpawnG := G2
+		  
+		  end
+
+	       % Spawn for bonus
+	       elseif H==4 then
+		  {Send WindowPort initBonus(P)}
+		  {Send WindowPort spawnBonus(P)}
+	    
+	       else skip
+	    
+	       end
+	    end
+	 end
+
+	 proc{SpawnColumn Column M N}
+	    local P in
+	       case Column
+	       of nil then skip
+	       [] T|End then
+	 
+		  P = pt(x:N y:M)
+		  {HandlePos T P}
+	 
+		  {SpawnColumn End M N+1}
+	       end
+	    end
+	 end
+
+	 proc{SpawnRow Row M}
+	    case Row
+	    of nil then
+	       % If still unplaced players after browsing through
+	       % the whole map: re-browse from the start
+	       if @ToSpawnP\=nil orelse @ToSpawnG\=nil then
+		  {SpawnRow Map 1}
+	       else
+		  skip
+	       end
+	       
+	    [] T|End then
+	       {SpawnColumn T M 1}
+	       {SpawnRow End M+1}
+	    end
+	 end
+
+	 {SpawnRow Map 1}
+	 
+      end
+   
+   end
+   
+   thread
+      % Create port for window
+      WindowPort = {GUI.portWindow}
+
+      % Open window
+      {Send WindowPort buildWindow}
+
+      % Create two lists of tuples 'Port#ID' for pacmans and ghosts respectively
+      % (with random order)
+      Pacmans = {Shuffle {InitPlayers 'P'} Input.nbPacman}
+      Ghosts  = {Shuffle {InitPlayers 'G'} Input.nbGhost} 
+
+      % Initialize and spawn players and items onto their positions
+      {FirstSpawns Input.map WindowPort {NewCell Pacmans} {NewCell Ghosts}}
+
+      % Define a random order between players (shuffling ghost and pacmans)
+      Order = {Shuffle {List.append Pacmans Ghosts} Input.nbPacman+Input.nbGhost}
+
+      if Input.isTurnByTurn then
+	 
+      else
+      end
+      
+   end
+
+end
