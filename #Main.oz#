@@ -208,7 +208,7 @@ in
 		  skip
 	       end
 	    end
-	 % Player is waiting for it's turn   
+	 % Player is waiting for its turn   
 	 [] wait(ID N) then
 	    if (N==0) then
 	       {Send PortMain begin(ID)}
