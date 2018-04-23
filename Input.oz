@@ -59,13 +59,13 @@ in
 	  [1 0 1 1 1 0 1 1 0 1 0 1]
 	  [1 0 0 0 1 0 0 1 0 1 0 1]
 	  [1 0 1 0 1 1 0 1 0 1 0 1]
-	  [1 4 1 0 2 0 0 0 2 0 0 1]
+	  [1 0 1 0 2 4 0 0 2 0 0 1]
 	  [1 1 1 1 1 1 1 1 1 1 1 1]]
 
 %%%% Respawn times %%%%
    
-   RespawnTimePoint = 10
-   RespawnTimeBonus = 15
+   RespawnTimePoint = 3
+   RespawnTimeBonus = 3
    RespawnTimePacman = 5
    RespawnTimeGhost = 5
 
