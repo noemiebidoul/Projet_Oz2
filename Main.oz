@@ -28,9 +28,14 @@ define
    CreateMap
    Board
    HuntMode
-   Spawns
+   SpawnsP
+   SpawnsG
    TellAll
    Respawn
+   Move
+   GetSpawn
+   EatPoint
+   EatBonus
 in
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -93,7 +98,7 @@ in
    % Chaque élément est un tuple de forme 'port#ID'
    % où 'port' est le port permettant de contacter le joueur
    %    'ID' est l'ID de type <pacman>/<ghost du joueur
-   fun {InitPlayers Kind FirstI}
+   fun {InitPlayers Kind}
       local Aux in
 	 
 	 fun {Aux L I}
@@ -113,9 +118,9 @@ in
 	 end
 	 
 	 if Kind=='P' then
-	    {Aux Input.pacman#Input.colorPacman FirstI}
+	    {Aux Input.pacman#Input.colorPacman 1}
 	 else
-	    {Aux Input.ghost#Input.colorGhost FirstI}
+	    {Aux Input.ghost#Input.colorGhost 1}
 	 end
 	 
       end
@@ -132,7 +137,8 @@ in
 
 	       % Walkable place i.e. spawn for point
 	       if H==0 then
-		  
+
+		  {Stack.push Board.M.N 'walkable'}
 		  {Stack.push Board.M.N 'point'}
 		  
 		  {Send WindowPort initPoint(P)}
@@ -144,15 +150,13 @@ in
 		  of nil then skip % Each pacman already has a spawn
 		  [] (P1|P2) then
 
-		     Spawns.(P1.id.id) = P
-		     %{Stack.push Board.M.N P1.id}
+		     SpawnsP.(P1.id.id) = P
 		     
 		     {Send WindowPort initPacman(P1.id)}
-		     %{Send WindowPort spawnPacman(P1.id P)}
 		     {Send P1.port assignSpawn(P)}
-		     %{Send P1.port spawn(ID Pos)}
 
-		     {Respawn P1}
+		     {Stack.push Board.M.N 'walkable'}
+		     {Respawn P1 P}
 
 		     ToSpawnP := P2
 		  
@@ -164,14 +168,13 @@ in
 		  of nil then skip % Each ghost already has a spawn
 		  [] G1|G2 then
 
-		     Spawns.(G1.id.id) = P
+		     SpawnsG.(G1.id.id) = P
 		     
 		     {Send WindowPort initGhost(G1.id)}
-		     %{Send WindowPort spawnGhost(G1.id P)}
 		     {Send G1.port assignSpawn(P)}
-		     %{Send G1.port spawn(ID Pos)}
 
-		     {Respawn G1}
+		     {Stack.push Board.M.N 'walkable'}
+		     {Respawn G1 P}
 		     
 		     ToSpawnG := G2
 		  
@@ -180,6 +183,7 @@ in
 	       % Spawn for bonus
 	       elseif H==4 then
 
+		  {Stack.push Board.M.N 'walkable'}
 		  {Stack.push Board.M.N 'bonus'}
 		  
 		  {Send WindowPort initBonus(P)}
@@ -237,22 +241,29 @@ in
 
    % @PRE: 'K' the kind of player (either
    %           'P' or 'G'
-   % @POST: Sends message M to all players
+   % @POST: Sends the list of messages M to all players
    %        of the list L
    proc {TellAll K M}
-      local Aux in
-	 proc {Aux L}
+      local Aux List in
+	 
+	 proc {Aux L Message}
 	    case L of H|T then
-	       {Send H.port M}
-	       {Aux T}
+	       {Send H.port Message}
+	       {Aux T Message}
 	    [] nil then skip
 	    end
 	 end
 	 
 	 if K=='P' then
-	    {Aux Pacmans}
+	    List = Pacmans
 	 elseif K=='G' then
-	    {Aux Ghosts}
+	    List = Ghosts
+	 end
+
+	 case M of H|T then
+	    {Aux List H}
+	    {TellAll K T}
+	 [] nil then skip
 	 end
       end
    end
@@ -261,24 +272,125 @@ in
    % @POST: Spawns player onto it's spawn, on the GUI and
    %        on the local dynamic Board + warns the concerned
    %        player, and all the players of the opposite kind.
-   proc {Respawn Player}
-      local Spawn in
-	 Spawn = Spawns.(Player.id.id)
-	 
-	 {Stack.push Board.(Spawn.y).(Spawn.x) Player.id}
+   proc {Respawn Player Spawn}
+      {Stack.push Board.(Spawn.y).(Spawn.x) Player.id}
+      case Player.id of pacman(id:_ color:_ name:_) then
+	 {Send WindowPort spawnPacman(Player.id Spawn)}
+	 {TellAll 'G' [pacmanPos(Player.id Spawn)]}
+      else
+	 {Send WindowPort spawnGhost(Player.id Spawn)}
+	 {TellAll 'P' [ghostPos(Player.id Spawn)]}
+      end
 
-	 case Player.id of pacman(id:_ color:_ name:_) then
-	    {Send WindowPort spawnPacman(Player.id Spawn)}
-	    {TellAll 'G' pacmanPos(Player.id Spawn)}
-	 else
-	    {Send WindowPort spawnGhost(Player.id Spawn)}
-	    {TellAll 'P' ghostPos(Player.id Spawn)}
-	 end
+      local ID P in
+	 {Send Player.port spawn(ID P)}
+      end
+   end
 
-	 local ID P in
-	    {Send Player.port spawn(ID P)}
-	    
+   % Moves the player of player id 'Player' from
+   % 'CurPos' to 'NextPos' on the GUI and the local
+   % Board, and warns the players from the opposite kind.
+   proc {Move Player CurPos NextPos}   
+      {Stack.pop Board.(CurPos.y).(CurPos.x)}
+      {Stack.push Board.(NextPos.y).(NextPos.x) Player.id}
+      case Player.id of pacman(id:_ color:_ name:_) then
+	 {Send WindowPort movePacman(Player.id NextPos)}
+	 {TellAll 'G' [pacmanPos(Player.id NextPos)]}
+      else
+	 {Send WindowPort moveGhost(Player.id NextPos)}
+	 {TellAll 'P' [ghostPos(Player.id NextPos)]}
+      end
+   end
+
+   % Hides the point on the GUI and the local Board,
+   % update player's score &  warns pacman of point's
+   % disapearing
+   proc {EatPoint Pacman Pos}    
+      {Send WindowPort hidePoint(Pos)}
+      {Stack.erase Board.(Pos.y).(Pos.x) 'point'}
+      {Send PortMain spawnPoint(Pos Input.respawnTimePoint*NbPlayer)}
+      local ID NewScore in
+	 {Send Pacman.port addPoint(Input.rewardPoint ID NewScore)}
+	 {Send WindowPort scoreUpdate(Pacman.id NewScore)}
+      end
+      {TellAll 'P' [pointRemoved(Pos)]}     
+   end
+
+   proc {EatBonus Pacman Pos}
+      {Send WindowPort hideBonus(Pos)}
+      {Send WindowPort setMode('hunt')}
+      {Stack.erase Board.(Pos.y).(Pos.x) 'bonus'}
+      {Send PortMain spawnBonus(Pos Input.respawnTimeBonus*NbPlayer)}
+      {TellAll 'P' [bonusRemoved(Pos) setMode('hunt')]}
+      {TellAll 'G' [setMode('hunt')]}
+   end
+   
+   
+   % @PRE: Player is on board
+   %       CurPos the current position of the player
+   %       (before its turn)
+   % @POST: Returns a record result(state:S nextPos:P),
+   % where  'State' is either 'actif', 'idle' or 'dead'
+   %        'NextPos' is the position of the player
+   %        after the turn
+   fun {Turn Player CurPos}
+      local ID NextPos O in
+	 {Send Player.port move(ID NextPos)}
+
+	 % Checks the answer's format & provider
+	 if ID==Player.id then
+	    case NextPos of pt(x:N y:M) then
+
+	       % Item on position where the player wants to move
+	       O = {Stack.peek Board.M.N}
+
+	       % Reacts based upon this position, and
+	       % wether the player is a Pacman or Ghost
+	       case O
+	       of 'wall' then
+		  result(state:'active' nextPos:CurPos)
+	       else
+
+		  {Move Player CurPos NextPos}
+		  
+		  case Player.id
+		  of pacman(id:_ color:_ name:_) then
+		     case O
+		     of 'point' then
+			{EatPoint Player NextPos}
+			result(state:'active' nextPos:NextPos)
+		     [] 'bonus' then
+			{EatBonus Player NextPos}
+			result(state:'active' nextPos:NextPos)
+		     [] ghost(id:P color:_ name:_) then
+			result(state:'active' nextPos:NextPos)
+		     [] pacman(id:_ color:_ name:_) then
+			result(state:'active' nextPos:NextPos)
+		     [] 'walkable' then result(state:'active' nextPos:NextPos)
+		     end
+		     
+		  [] ghost(id:_ color:_ name:_) then
+		     case O
+		     of 'point' then result(state:'active' nextPos:NextPos)
+		     [] 'bonus' then result(state:'active' nextPos:NextPos)
+		     [] ghost(id:P color:_ name:_) then
+			result(state:'active' nextPos:NextPos)
+		     [] pacman(id:_ color:_ name:_) then
+			result(state:'active' nextPos:NextPos)
+		     [] 'walkable' then result(state:'active' nextPos:NextPos)
+		     end
+		  end
+	       end
+	    end
 	 end
+      end
+   end
+
+   fun {GetSpawn PlayerID}
+      case PlayerID of pacman(id:IDp color:_ name:_) then
+	 SpawnsP.IDp
+      [] ghost(id:IDg color:_ name:_) then
+	 SpawnsG.IDg
       end
    end
    
@@ -292,7 +404,7 @@ in
 	    {Send PortMain start(H State NextPos)}
 	    case State
 	    of 'active' then {Send PortMain wait(H (NbPlayer-1) NextPos)}
-	    [] 'idle' then {Send PortMain idle(H (Input.respawnTimePacman+1))}		    
+	    [] 'idle' then {Send PortMain idle(H ((NbPlayer-1)*Input.respawnTimePacman+1))}		    
 	    end
 	    {Start T PortMain}
 	 [] nil then skip
@@ -301,88 +413,112 @@ in
    end
  
    proc {ReadStream St PortMain}
-      case St of H|T then
-	 {Delay 1000}
-	 case H
-	    
-	 % First turn of a player   
-	 of start(Player ?State ?NextPos) then
-	    local Result in
-	       Result = {Turn Player Spawns.(Player.id.id)}
-	       NextPos = Result.2
-	       State = Result.1
-	    end
-	    
-	 % Player is re-playing   
-	 [] begin(Player CurPos Reborn) then
-	    if Reborn then
-	       {Respawn Player}
-	    end
+
+      local Play in
+	 
+	 proc {Play Player CurPos}
 	    local Result in
 	       Result = {Turn Player CurPos}
-	       if Result.1 == 'active' then
-		  {Send PortMain wait(Player (NbPlayer-1) Result.2)}
-	       elseif Result.1 == 'idle' then
-		  {Send PortMain idle(Player (Input.respawnTimePacman+1))}
-	       elseif Result.1 == 'dead' then
+	       if Result.state == 'active' then
+		  {Send PortMain wait(Player (NbPlayer-1) Result.nextPos)}
+	       elseif Result.state == 'idle' then
+		  {Send PortMain idle(Player ((NbPlayer-1)*Input.respawnTimePacman+1))}
+	       elseif Result.state == 'dead' then
 		  skip
 	       end
 	    end
-	    
-	 % Player is waiting for its turn   
-	 [] wait(Player N CurPos) then
-	    if (N==0) then
-	       {Send PortMain begin(Player CurPos false)}
-	    else
-	       {Send PortMain wait(Player N-1 CurPos)}
-	    end
-	    
-	 % Player is idle   
-	 [] idle(Player N) then
-	    if (N==0) then
-	       {Send PortMain begin(Player Spawns.(Player.id.id) true)}
-	    else
-	       {Send PortMain idle(Player N-1)}
-	    end
 	 end
-	 {ReadStream T PortMain}
-      [] nil then
-	 {Send WindowPort displayWinner(Order.1.2)}
+	 
+	 case St of H|T then
+	    {Delay 300}
+	    case H
+
+	 % First turn of a player   
+	    of start(Player ?State ?NextPos) then
+	       local Result in
+		  Result = {Turn Player {GetSpawn Player.id}}
+		  NextPos = Result.nextPos
+		  State = Result.state
+	       end
+	     
+	    [] wait(Player N CurPos) then
+	    % Player can replay
+	       if (N==0) then
+		  {Play Player CurPos}
+	    % Player must wait for it's turn
+	       else
+		  {Send PortMain wait(Player N-1 CurPos)}
+	       end
+  
+	    [] idle(Player N) then
+	    % Player can be respawn, and replay
+	       if (N==0) then
+		  {Respawn Player {GetSpawn Player.id}}
+		  {Play Player {GetSpawn Player.id}}
+	       else
+	    % Player is idle
+		  {Send PortMain idle(Player N-1)}
+	       end
+
+	    [] spawnPoint(Pos N) then
+	       if (N==0) then
+		  {Stack.push Board.(Pos.y).(Pos.x) 'point'}
+		  {Send WindowPort spawnPoint(Pos)}
+		  {TellAll 'P' [pointSpawn(Pos)]}
+	       else
+		  {Send PortMain spawnPoint(Pos N-1)}
+	       end
+	    
+	    [] spawnBonus(Pos N) then
+	       if (N==0) then
+		  {Stack.push Board.(Pos.y).(Pos.x) 'bonus'}
+		  {Send WindowPort setMode('classic')}
+		  {Send WindowPort spawnBonus(Pos)}
+		  {TellAll 'P' [setMode('classic') bonusSpawn(Pos)]}
+		  {TellAll 'G' [setMode('classic')]}
+	       else
+		  {Send PortMain spawnBonus(Pos N-1)}
+	       end
+	    end
+	    {ReadStream T PortMain}
+	 [] nil then
+	    {Send WindowPort displayWinner(Order.1.2)}
+	 end
       end
    end
-
 
 %%%%%%%%%%%%
 %%% MAIN %%%
 %%%%%%%%%%%%
-   
-      % Create port for window
+
+   % Create port for window
    WindowPort = {GUI.portWindow}
 
-      % Open window
+   % Open window
    {Send WindowPort buildWindow}
 
-      % Create two lists of tuples 'Port#ID' for pacmans and ghosts respectively
-      % (with random order)
-   Pacmans = {Shuffle {InitPlayers 'P' 1} Input.nbPacman}
-   Ghosts  = {Shuffle {InitPlayers 'G' Input.nbPacman+1} Input.nbGhost}
-
-      % Creation of empty dynamic map
-   Board = {CreateMap Input.nRow Input.nColumn}
-   NbPlayer = Input.nbPacman + Input.nbGhost
-   
-      % Initialize and spawn players and items onto their positions
-   Spawns = {Tuple.make 's' NbPlayer}
-   {FirstSpawns Input.map WindowPort {NewCell Pacmans} {NewCell Ghosts}}
-
-      % Define a random order between players (shuffling ghost and pacmans)
-   Order = {Shuffle {List.append Pacmans Ghosts} Input.nbPacman+Input.nbGhost}
-
-      % Creation of a Port object for the Main
+   % Create port for Main
    {NewPort Stream PortMain}
 
-   HuntMode = {NewCell false}
+   % Create random order between players
+   Pacmans = {Shuffle {InitPlayers 'P'} Input.nbPacman}
+   Ghosts  = {Shuffle {InitPlayers 'G'} Input.nbGhost}
+   Order = {Shuffle {List.append Pacmans Ghosts} Input.nbPacman+Input.nbGhost}
 
+   % Create local dynamic Board
+   Board = {CreateMap Input.nRow Input.nColumn}
+
+   % Useful variables
+   NbPlayer = Input.nbPacman + Input.nbGhost
+   HuntMode = {NewCell false}
+   SpawnsP = {Tuple.make 's' Input.nbPacman}
+   SpawnsG = {Tuple.make 's' Input.nbGhost}
+   
+   % Initialize and spawn players/items on GUI & local Board
+   {FirstSpawns Input.map WindowPort {NewCell Pacmans} {NewCell Ghosts}}
+
+
+   % Browser Object (debugging purpose)   
    W = {New Tk.toplevel tkInit(bg:ivory)}
    {Tk.send wm(geometry W "500x300")}
    F = {New Tk.frame tkInit(parent : W
@@ -394,7 +530,7 @@ in
    {Tk.send pack(F fill:both padx:10 pady:10 expand:true)}
    BrowserObject = {New Browser.'class' init(origWindow: F)}
    {BrowserObject createWindow}
-   {BrowserObject browse([Order Spawns])}
+   {BrowserObject browse([Order Stream])}
    
    if Input.isTurnByTurn then
    
