@@ -3,6 +3,7 @@ functor
 import
    Pacman000random
    Ghost000random
+   Pacman001other
 export
    playerGenerator:PlayerGenerator
 define
@@ -13,6 +14,7 @@ in
       case Kind
       of pacman000random then {Pacman000random.portPlayer ID}
       [] ghost000random then {Ghost000random.portPlayer ID}
+      [] pacman001other then {Pacman001other.portPlayer ID}
       end
    end
 end
