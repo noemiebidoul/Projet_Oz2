@@ -1,4 +1,3 @@
-%% Input %%
 functor
 export
    isTurnByTurn:IsTurnByTurn
@@ -54,20 +53,20 @@ in
    
    NRow = 7
    NColumn = 12
-   Map = [[1 1 1 1 0 1 1 1 1 1 1 1]
-	  [1 2 0 1 0 0 0 0 0 0 0 1]
-	  [1 0 1 1 0 0 1 1 0 1 0 1]
-	  [1 4 0 0 1 0 0 1 0 1 0 1]
-	  [1 2 1 0 1 1 0 1 0 1 0 1]
-	  [1 3 1 0 1 1 0 0  0 0 1]
+   Map = [[1 1 1 1 1 1 1 1 1 1 1 1]
+	  [1 0 0 4 0 0 3 0 0 0 0 1]
+	  [1 0 1 1 1 0 1 1 0 1 0 1]
+	  [1 0 0 0 1 0 0 1 0 1 0 1]
+	  [1 0 1 0 1 1 0 1 0 1 0 1]
+	  [1 0 1 4 2 4 0 0 2 0 0 1]
 	  [1 1 1 1 1 1 1 1 1 1 1 1]]
 
 %%%% Respawn times %%%%
    
-   RespawnTimePoint = 4
-   RespawnTimeBonus = 4
-   RespawnTimePacman = 3
-   RespawnTimeGhost = 3
+   RespawnTimePoint = 10
+   RespawnTimeBonus = 15
+   RespawnTimePacman = 5
+   RespawnTimeGhost = 5
 
 %%%% Rewards and penalities %%%%
 
@@ -78,7 +77,7 @@ in
 %%%%
 
    NbLives = 2
-   HuntTime = 15
+   HuntTime = 50
    
 %%%% Players description %%%%
 

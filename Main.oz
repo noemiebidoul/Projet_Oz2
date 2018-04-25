@@ -47,6 +47,7 @@ define
    EatPoint
    EatBonus
    EatPacman
+   EatGhost
    GetWinner
    Alive
 in
@@ -336,6 +337,26 @@ in
       end
    end
 
+   fun {EatGhost Ghost Pacman Pos ActiveKind}
+      {Send PortBoard erase(Pos.y Pos.x Ghost)}
+      {Send WindowPort hideGhost(Ghost.id)}
+      {Send PortPacmans deathGhost(Ghost.id)}
+      {Send Ghost.port gotKilled()}
+      local ID NewScore in
+	 {Send Pacman.port killGhost(Ghost.id ID NewScore)}
+	 {Send WindowPort scoreUpdate(Pacman.id NewScore)}
+      end
+      if ActiveKind == 'P' then
+	 local RespawnTime in
+	    RespawnTime = Input.respawnTimeGhost-1
+	    {Send PortMain idle(Ghost RespawnTime)}
+	 end
+	 result(state:'active' nextPos:Pos)
+      elseif ActiveKind == 'G' then
+	 result(state:'idle' nextPos:{GetSpawn Ghost.id})
+      end
+   end
+
    fun {Turn Player CurPos}
       local ID NextPos O in
 
@@ -347,45 +368,58 @@ in
 
 	       % Item on position where the player wants to move
 	       local O in
-	       {Send PortBoard peek(M N O)}
+		  {Send PortBoard peek(M N O)}
 
 	       % Reacts based upon this position, and
 	       % wether the player is a Pacman or Ghost
-	       case O
-	       of 'wall' then
-		  result(state:'active' nextPos:CurPos)
-	       else
+		  case O
+		  of 'wall' then
+		     result(state:'active' nextPos:CurPos)
+		  else
 
-		  {Move Player CurPos NextPos}
+		     {Move Player CurPos NextPos}
 		  
-		  case Player.id
-		  of pacman(id:_ color:_ name:_) then
-		     case O
-		     of 'point' then
-			{EatPoint Player NextPos}
-			result(state:'active' nextPos:NextPos)
+		     case Player.id
+		     of pacman(id:_ color:_ name:_) then
+			case O
+			of 'point' then
+			   {EatPoint Player NextPos}
+			   result(state:'active' nextPos:NextPos)
 			
-		     [] 'bonus' then
-			{EatBonus Player NextPos}
-			result(state:'active' nextPos:NextPos)
+			[] 'bonus' then
+			   {EatBonus Player NextPos}
+			   result(state:'active' nextPos:NextPos)
 			
-		     [] player(port:_ id:ghost(id:_ color:_ name:_)) then			
-			{EatPacman O Player NextPos 'P'}	
-			
-		     else
-			result(state:'active' nextPos:NextPos)
-		     end
+			[] player(port:_ id:ghost(id:_ color:_ name:_)) then
+			   local InHuntMode in
+			      {Send PortObjects inHuntMode(InHuntMode)}
+			      if InHuntMode then
+				 {EatGhost O Player NextPos 'P'}
+			      else
+				 {EatPacman O Player NextPos 'P'}
+			      end
+			   end
+			else
+			   result(state:'active' nextPos:NextPos)
+			end
 		     
-		  [] ghost(id:_ color:_ name:_) then
-		     case O
-		     of player(port:_ id:pacman(id:_ color:_ name:_)) then
-			{EatPacman Player O NextPos 'G'}
+		     [] ghost(id:_ color:_ name:_) then
+			case O
+			of player(port:_ id:pacman(id:_ color:_ name:_)) then
+			   local InHuntMode in
+			      {Send PortObjects inHuntMode(InHuntMode)}
+			      if InHuntMode then
+				 {EatGhost Player O NextPos 'G'}
+			      else
+				 {EatPacman Player O NextPos 'G'}
+			      end
+			   end
 			
-		     else
-			result(state:'active' nextPos:NextPos)
+			else
+			   result(state:'active' nextPos:NextPos)
+			end
 		     end
 		  end
-	       end
 	       end
 	    end
 	 end
@@ -406,8 +440,6 @@ in
 	    case L of H|T then
 	       local NewScore Id in
 		  {Send H.port addPoint(0 Id NewScore)}
-		  {BrowserObject browse(H.id)}
-		  {BrowserObject browse(NewScore>HighestScore)}
 		  if NewScore > HighestScore then
 		     {Aux T NewScore H.id}
 		  else
@@ -570,9 +602,6 @@ in
 	 [] erase(M N E) then {Stack.erase Board.M.N E}
 	 [] contains(M N E C) then C = {Stack.contains Board.M.N E}
 	 [] peek(M N O) then O = {Stack.peek Board.M.N}
-	 [] huntMode(M) then HuntMode := M
-	 [] deathPacman then Alive := @Alive-1
-	 [] gameOver(Over) then Over = (@Alive==0)
 	 [] nil then skip
 	 end
 	 {ReadStreamBoard T}
@@ -583,6 +612,7 @@ in
       case Stream of H|T then
 	 case H
 	 of huntMode(M) then HuntMode := M
+	 [] inHuntMode(M) then M = @HuntMode 
 	 [] deathPacman then Alive := @Alive-1
 	 [] gameOver(Over) then Over = (@Alive==0)
 	 [] nil then skip
@@ -590,7 +620,6 @@ in
 	 {ReadStreamObjects T}
       end
    end
-   
    
 %%%%%%%%%%%%
 %%% MAIN %%%
