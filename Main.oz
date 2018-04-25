@@ -40,7 +40,7 @@ define
    GetSpawn
    EatPoint
    EatBonus
-   GhostEatPacman
+   EatPacman
 in
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -308,6 +308,38 @@ in
       {Send PortGhosts setMode('hunt')}
    end
 
+   fun {EatPacman Ghost Pacman Pos ActiveKind}
+      {Stack.erase Board.(Pos.y).(Pos.x) Pacman}
+      {Send WindowPort hidePacman(Pacman.id)}
+      {Send Ghost.port killPacman(Pacman.id)}
+      {Send PortGhosts deathPacman(Pacman.id)}
+      
+      local ID NewScore NewLife in
+	 {Send Pacman.port gotKilled(ID NewLife NewScore)}
+	 {Send WindowPort lifeUpdate(Pacman.id NewLife)}
+	 {Send WindowPort scoreUpdate(Pacman.id NewScore)}
+
+	 if ActiveKind == 'P' then
+	    if NewLife>0 then
+	       result(state:'idle' nextPos:{GetSpawn Pacman.id})
+	    else
+	       result(state:'dead' nextPos:{GetSpawn Pacman.id})
+	    end
+	
+	 elseif ActiveKind == 'G' then
+	    if NewLife>0 then
+	       local RespawnTime in
+		  RespawnTime = Input.respawnTimePacman-1
+		  {Send PortMain idle(Pacman RespawnTime)}
+	       end
+	    else
+	       skip
+	    end
+	    result(state:'active' nextPos:Pos)
+	 end
+      end
+   end
+
    fun {Turn Player CurPos}
       local ID NextPos O in
 	 
@@ -340,8 +372,9 @@ in
 			{EatBonus Player NextPos}
 			result(state:'active' nextPos:NextPos)
 			
-		     [] player(port:_ id:ghost(id:_ color:_ name:_)) then
-			result(state:'active' nextPos:NextPos)
+		     [] player(port:_ id:ghost(id:_ color:_ name:_)) then			
+			{EatPacman O Player NextPos 'P'}	
+			
 		     else
 			result(state:'active' nextPos:NextPos)
 		     end
@@ -349,7 +382,8 @@ in
 		  [] ghost(id:_ color:_ name:_) then
 		     case O
 		     of player(port:_ id:pacman(id:_ color:_ name:_)) then
-			result(state:'active' nextPos:NextPos)
+			{EatPacman Player O NextPos 'G'}
+			
 		     else
 			result(state:'active' nextPos:NextPos)
 		     end
@@ -408,19 +442,27 @@ in
 	 
 	 case St of H|T then
 	    case H
-
-	    % First turn of a player   
+	         
 	    of start(Player) then
-	       {Play Player {GetSpawn Player.id}}
+	       local Pos in
+		  Pos = {GetSpawn Player.id}
+		  % First turn of a player 
+		  if {Stack.contains Board.(Pos.y).(Pos.x) Player} then
+		     {Play Player Pos}
+		  % Player has been killed before it's first turn
+		  else
+		     skip
+		  end
+	       end	       
 
-	    % Player can replay   
 	    [] replay(Player CurPos) then
-	       %if {Stack.contains Board.(CurPos.y).(CurPos.x) Player} then
-	       {Play Player CurPos}
+	       % Player can replay   
+	       if {Stack.contains Board.(CurPos.y).(CurPos.x) Player} then
+		  {Play Player CurPos}
 	       % Player has been killed before it's turn	  
-	       %else
-		%  skip
-	       %end
+	       else
+		  skip
+	       end
   
 	    [] idle(Player N) then
 	       % Player can be respawn, and replay
@@ -535,6 +577,7 @@ in
 			    height : 250)}
    {Tk.send pack(F fill:both padx:10 pady:10 expand:true)}
    BrowserObject = {New Browser.'class' init(origWindow: F)}
+   {BrowserObject browse(StreamMain)}
    {BrowserObject createWindow}
    
    if Input.isTurnByTurn then
