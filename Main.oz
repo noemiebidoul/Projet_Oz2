@@ -496,6 +496,8 @@ in
 		     end
 		  end
 	       end
+
+		   %{Delay 1000}
 	 
 	       case St of H|T then
 		  case H
@@ -657,18 +659,18 @@ in
    {FirstSpawns Input.map WindowPort {NewCell Pacmans} {NewCell Ghosts}}
 
    % Browser Object (debugging purpose)   
-   W = {New Tk.toplevel tkInit(bg:red)}
-   {Tk.send wm(geometry W "500x300")}
-   F = {New Tk.frame tkInit(parent : W
-			    bd     : 3
-			    bg     : white
-			    relief : groove
-			    width  : 450  
-			    height : 250)}
-   {Tk.send pack(F fill:both padx:10 pady:10 expand:true)}
-   BrowserObject = {New Browser.'class' init(origWindow: F)}
+   %W = {New Tk.toplevel tkInit(bg:red)}
+   %{Tk.send wm(geometry W "500x300")}
+   %F = {New Tk.frame tkInit(parent : W
+	%		    bd     : 3
+	%		    bg     : white
+	%		    relief : groove
+	%		    width  : 450  
+	%		    height : 250)}
+   %{Tk.send pack(F fill:both padx:10 pady:10 expand:true)}
+   %BrowserObject = {New Browser.'class' init(origWindow: F)}
    %{BrowserObject browse(StreamMain)}
-   {BrowserObject createWindow}
+   %{BrowserObject createWindow}
 		   
    if Input.isTurnByTurn then
    

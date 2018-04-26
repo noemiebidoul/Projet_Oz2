@@ -17,6 +17,9 @@ define
    West
    UpdateStatus
    Move
+   W
+   F
+   BrowserObject
    Mark
    Enqueue
    FindInGraph
@@ -333,28 +336,23 @@ in
    % Returns a <strategy> where the <traget> is updated if it is a better <target>.
    fun{UpdateTarget Position Target Rank Strat Mode}
       fun{UT Position Target Rank Strat}
-         R
-      in
-         if Strat.t.r > 0 then R = ~2
-         else R = Strat.t.r
-         end
          % Better rank
-         if Rank > R then strat(t:t(p:Target r:Rank) g:Strat.g b:Strat.b m:Strat.m)
-               % Lower rank
-         elseif Rank < R then Strat
-         else
-            local P1 P2 in
-               P1 = {Path Position Target Strat.m} 
-               P2 = {Path Position Strat.t.p Strat.m}
-               if P1 == nil then Strat
-               elseif P2 == nil then strat(t:t(p:Target r:Rank) g:Strat.g b:Strat.b m:Strat.m)
-                     % Same rank but further
-               elseif {Length P1} > {Length P2} then Strat
-                     % Same rank but closer
-               else strat(t:t(p:Target r:Rank) g:Strat.g b:Strat.b m:Strat.m)
-               end
-            end
-         end
+	 if Rank > Strat.t.r then strat(t:t(p:Target r:Rank) g:Strat.g b:Strat.b m:Strat.m)
+         % Lower rank
+	 elseif Rank < Strat.t.r then Strat
+	 else
+	    local P1 P2 in
+	       P1 = {Path Position Target Strat.m} 
+	       P2 = {Path Position Strat.t.p Strat.m}
+	       if P1 == nil then Strat
+	       elseif P2 == nil then strat(t:t(p:Target r:Rank) g:Strat.g b:Strat.b m:Strat.m)
+               % Same rank but further
+	       elseif {Length P1} > {Length P2} then Strat
+               % Same rank but closer
+	       else strat(t:t(p:Target r:Rank) g:Strat.g b:Strat.b m:Strat.m)
+	       end
+	    end
+	 end
       end
       fun{UTH Position Target ID Strat}
 	 if ID < 1 then Strat
@@ -393,12 +391,14 @@ in
    % the list.
    % Returns a <ghosts> list.
    fun{RemoveGhost ID G}
-      case G of nil then nil
-      [] H|T then
-	 if H.id == ID then {RemoveGhost ID T}
-	 else H|{RemoveGhost ID T}
-	 end
-      end
+      %case G of nil then nil
+      %[] H|T then
+	 %if H.id == ID then {RemoveGhost ID T}
+	 %else H|{RemoveGhost ID T}
+	 %end
+      %end
+      {BrowserObject browse(hello)}
+      nil
    end
 
    % P is the position of the bonus
@@ -420,7 +420,7 @@ in
 	 case B of nil then Acc
 	 [] H|T then 
 	    if Acc == none then {Closest T M P H} 
-	    elseif {Length {Path P H.p M}} < {Length {Path P Acc.p M}} then {Closest T M P H}
+	    elseif {Length {Path P H.p Strat.m}} < {Length {Path P Acc.p Strat.m}} then {Closest T M P H}
 	    else {Closest T M P Acc}
 	    end
 	 end
@@ -436,13 +436,13 @@ in
    fun{FindGhost Position Strat Mode}
       Ghost
       fun{Closest G M P Acc}
-         case G of nil then Acc
-         [] H|T then 
-            if Acc == none then {Closest T M P H}
-            elseif {Length {Path P H.p M}} < {Length {Path P Acc.p M}} then {Closest T M P H}
-            else {Closest T M P Acc}
-            end
-         end
+	 case G of nil then Acc
+	 [] H|T then 
+	    if Acc == none then {Closest T M P H}
+	    elseif {Length {Path P H.p Strat.m}} < {Length {Path P Acc.p Strat.m}} then {Closest T M P H}
+	    else {Closest T M P Acc}
+	    end
+	 end
       end
    in
       Ghost = {Closest Strat.g Strat.m Position none}
@@ -596,6 +596,19 @@ in
 %%%%%%%%%%%%%%%%%%%%%%%
 %%% CORE PROCEDURES %%%
 %%%%%%%%%%%%%%%%%%%%%%%
+	
+   % Browser Object (debugging purpose)   
+   W = {New Tk.toplevel tkInit(bg:ivory)}
+   {Tk.send wm(geometry W "500x300")}
+   F = {New Tk.frame tkInit(parent : W
+			    bd     : 3
+			    bg     : white
+			    relief : groove
+			    width  : 450  
+			    height : 250)}
+   {Tk.send pack(F fill:both padx:10 pady:10 expand:true)}
+   BrowserObject = {New Browser.'class' init(origWindow: F)}
+   {BrowserObject createWindow}
 
   % ID is a <pacman> ID
    fun{StartPlayer ID}
@@ -611,93 +624,86 @@ in
       thread
 	 Status = status(p:OutOfBoard life:Input.nbLives score:0 m:classic spawn:OutOfBoard)
 	 Strat = strat(t:t(p:OutOfBoard r:~2) g:nil b:nil m:nil)
-	 {TreatStream Stream Status ID Strat Input.isTurnByTurn}
+	 {TreatStream Stream Status ID Strat}
       end
       Port
    end
 
-   proc{TreatStream Stream St IDP S TbT} % has as many parameters as you want
+   proc{TreatStream Stream St IDP S} % has as many parameters as you want
       NSt
       NS
       G
+      Tar
    in
+      {BrowserObject browse(S.g)}
       case Stream
       of H|T then
 	 case H
 	 of getID(ID) then 
 	    ID = IDP
-	    {TreatStream T St IDP S TbT}
+	    {TreatStream T St IDP S}
 	 [] assignSpawn(P) then
 	    NSt = {UpdateStatus P St.life 0 classic P}
-	    {TreatStream T NSt IDP S TbT}
+	    NS = strat(t:t(p:P r:~2) g:nil b:nil m:{Bfs P})
+	    {TreatStream T NSt IDP NS}
 	 [] spawn(ID P) then
 	    ID = IDP
 	    P = St.p
-	    {TreatStream T St IDP S TbT}
+	    {TreatStream T St IDP S}
 	 [] move(ID P) then
-       if {Not TbT} then
-         local I J in
-            {OS.rand I}
-            J = I mod (Input.thinkMax-Input.thinkMin)
-            {Delay J+Input.thinkMin}
-         end 
-       end
 	    ID = IDP 
 	    P = {Move St.p S St.m}
 	    NSt = {UpdateStatus P St.life St.score St.m St.spawn}
 	    NS = strat(t:S.t g:S.g b:S.b m:{Bfs P})
-	    {TreatStream T NSt IDP NS TbT}
+	    {TreatStream T NSt IDP NS}
 	 [] bonusSpawn(P) then
 	    NS = {UpdateTarget St.p P 0 strat(t:S.t g:S.g b:{UpdateBonuses P true S.b} m:S.m) St.m}
-	    {TreatStream T St IDP NS TbT}
+	    {TreatStream T St IDP NS}
 	 [] pointSpawn(P) then
 	    NS = {UpdateTarget St.p P ~1 S St.m}
-	    {TreatStream T St IDP NS TbT}
+	    {TreatStream T St IDP NS}
 	 [] bonusRemoved(P) then
       % current target is a bonus at position P
 	    if S.t.r == 0 andthen S.t.p == P then 
 	       NS = {FindBonus St.p strat(t:S.t g:S.g b:{UpdateBonuses P false S.b} m:S.m) St.m}
 	    else NS = S end
-	    {TreatStream T St IDP NS TbT}
+	    {TreatStream T St IDP NS}
 	 [] pointRemoved(P) then
       % current target is a point at position P
-        if S.t.r == ~1 andthen S.t.p == P then NS = {FindBonus St.p S St.m}
-        else NS = S end
-	    {TreatStream T St IDP NS TbT}
+	    if S.t.r == ~1 andthen S.t.p == P then NS = {FindBonus St.p S St.m}
+	    else NS = S end
+	    {TreatStream T St IDP NS}
 	 [] addPoint(Add ID NewScore) then
 	    NSt = {UpdateStatus St.p St.life St.score+Add St.m St.spawn}
 	    ID = IDP
 	    NewScore = NSt.score
-	    {TreatStream T NSt IDP S TbT}
+	    {TreatStream T NSt IDP S}
 	 [] gotKilled(ID NewLife NewScore) then
 	    NSt = {UpdateStatus St.spawn St.life-1 St.score-Input.penalityKill St.m St.spawn}
-       ID = IDP
+	    ID = IDP
 	    NewLife = NSt.life
 	    NewScore = NSt.score
-	    {TreatStream T NSt IDP S TbT}
+	    {TreatStream T NSt IDP S}
 	 [] ghostPos(ID P) then
 	    G = {UpdateGhostPos ID.id P S.g}
 	    if St.m == hunt then NS = {UpdateTarget St.p P ID.id strat(t:S.t g:G b:S.b m:S.m) St.m}
 	    else NS = strat(t:S.t g:G b:S.b m:S.m) end
-	    {TreatStream T St IDP NS TbT}
+	    {TreatStream T St IDP NS}
 	 [] killGhost(IDg IDp NewScore) then
-	    G = {RemoveGhost IDg.id S.g}
+	    G = {RemoveGhost ID.id S.g}
 	    NS = {FindGhost St.p strat(t:S.t g:G b:S.b m:S.m) St.m}
 	    NSt = {UpdateStatus St.p St.life St.score+Input.rewardKill St.m St.spawn}
 	    IDp = IDP
 	    NewScore = NSt.score
-	    {TreatStream T NSt IDP NS TbT}
+	    {TreatStream T NSt IDP NS}
 	 [] deathGhost(ID) then
 	    G = {RemoveGhost ID.id S.g}
 	    NS = {FindGhost St.p strat(t:S.t g:G b:S.b m:S.m) St.m}
-	    {TreatStream T St IDP NS TbT}
+	    {TreatStream T St IDP NS}
 	 [] setMode(M) then 
 	    NSt = {UpdateStatus St.p St.life St.score M St.spawn}
-       case M of classic then NS = {FindBonus NSt.p S NSt.m}
-       else NS = {FindGhost NSt.p S NSt.m}
-       end
-	    {TreatStream T NSt IDP NS TbT}
-	 else {TreatStream T St IDP S TbT}
+	    {TreatStream T NSt IDP S}
+	 else {TreatStream T St IDP S}
 	 end
       else skip
       end
