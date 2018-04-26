@@ -5,6 +5,7 @@ import
    Input
    Browser
    OS
+   System
 export
    portPlayer:StartPlayer
 define   
@@ -39,6 +40,12 @@ define
    Random
    UpdateBonuses
    FindBonus
+   TimerAgent
+   %browse
+   W
+   F
+   BrowserObject
+   Say
 in
 
 %%%%%%%%%%%%%%%%%%%
@@ -238,19 +245,19 @@ in
 % a list of <position>
    fun{Path To From Edges}
       fun{FindEdge P E}
-	 case E of H|T then
-	    if H.v == P then H
-	    else {FindEdge P T}
-	    end
-	 else none
-	 end
+         case E of H|T then
+            if H.v == P then H
+            else {FindEdge P T}
+            end
+         else none
+         end
       end
       fun{Loop E P}
-	 if E == none then nil
-	 elseif E.w == P then E.v|nil
-	 else
-	    E.v|{Loop {FindEdge E.w Edges} P}
-	 end
+         if E == none then nil
+         elseif E.w == P then E.v|nil
+         else
+            E.v|{Loop {FindEdge E.w Edges} P}
+         end
       end
    in
       {Loop {FindEdge From Edges} To}
@@ -420,7 +427,7 @@ in
 	 case B of nil then Acc
 	 [] H|T then 
 	    if Acc == none then {Closest T M P H} 
-	    elseif {Length {Path P H.p M}} < {Length {Path P Acc.p M}} then {Closest T M P H}
+	    elseif {Length {Path P H.p M}} < {Length {Path P Acc.p M}} andthen H.v then {Closest T M P H}
 	    else {Closest T M P Acc}
 	    end
 	 end
@@ -597,12 +604,26 @@ in
 %%% CORE PROCEDURES %%%
 %%%%%%%%%%%%%%%%%%%%%%%
 
+ % Browser Object (debugging purpose)   
+   W = {New Tk.toplevel tkInit(bg:ivory)}
+   {Tk.send wm(geometry W "500x300")}
+   F = {New Tk.frame tkInit(parent : W
+			    bd     : 3
+			    bg     : white
+			    relief : groove
+			    width  : 450  
+			    height : 250)}
+   {Tk.send pack(F fill:both padx:10 pady:10 expand:true)}
+   BrowserObject = {New Browser.'class' init(origWindow: F)}
+   {BrowserObject createWindow}
+   Say = System.showInfo
+
   % ID is a <pacman> ID
    fun{StartPlayer ID}
       Stream
       Port
-      MStream
-      MPort
+      TimerPort
+      TimerStream
       Status
       Strat
       OutOfBoard
@@ -610,108 +631,117 @@ in
       Graph = {GenerateGraph Input.map}
       OutOfBoard = pt(x:Input.nColumn+2 y:Input.nRow+2)
       {NewPort Stream Port}
-      {NewPort MStream MPort}
+      {BrowserObject browse(Input.isTurnByTurn)}
+      thread {TimerAgent TimerStream Port} end
       thread
 	      Status = status(p:OutOfBoard life:Input.nbLives score:0 m:classic spawn:OutOfBoard)
 	      Strat = strat(t:t(p:OutOfBoard r:~2) g:nil b:nil m:nil)
-	      {TreatStream Stream Status ID Strat Input.isTurnByTurn}
+	      {TreatStream Stream Status ID Strat TimerPort}
       end
-      thread {ReadStream MStream} end
       Port
    end
 
-   proc{ReadStream Stream}
-      case Stream
-      of H|T then
-         case H of move(P Current Strat Mode Wait) then 
-            if Wait then
-               local I J in
-                  {OS.rand I}
-                  J = I mod (Input.thinkMax-Input.thinkMin)
-                  {Delay J+Input.thinkMin}
-               end
+   proc{TimerAgent S PlayerPort}
+      case S of nil then skip
+      [] H|T then
+         case H of startTimer(ID P) then
+            local I J in
+               {OS.rand I}
+               J = I mod (Input.thinkMax-Input.thinkMin)
+               {Delay J+Input.thinkMin}
+               {Send PlayerPort endTimer(ID P)}
             end
-            P = {Move Current Strat Mode}
-         else skip
-         end 
-      else skip
+            {TimerAgent T PlayerPort}
+         else {TimerAgent T PlayerPort}
+         end
       end
    end
-   proc{TreatStream Stream St IDP S TbT} % has as many parameters as you want
+
+   proc{TreatStream Stream St IDP S Port} % has as many parameters as you want
       NSt
       NS
       G
+      NextPos
    in
       case Stream
       of H|T then
 	 case H
 	 of getID(ID) then 
 	    ID = IDP
-	    {TreatStream T St IDP S TbT}
+	    {TreatStream T St IDP S Port}
 	 [] assignSpawn(P) then
+      {BrowserObject browse(H)}
 	    NSt = {UpdateStatus P St.life 0 classic P}
-	    {TreatStream T NSt IDP S TbT}
+	    {TreatStream T NSt IDP S Port}
 	 [] spawn(ID P) then
+      {BrowserObject browse(H#IDP)}
 	    ID = IDP
 	    P = St.p
-	    {TreatStream T St IDP S TbT}
+	    {TreatStream T St IDP S Port}
 	 [] move(ID P) then
-	    ID = IDP 
-	    {Send MPort move(P St.p S St.m {Not TbT})}
+	      ID = IDP 
+	      P = {Move St.p S St.m}
+         {System.show 'Position : '#P}
+	      NSt = {UpdateStatus P St.life St.score St.m St.spawn}
+	      NS = strat(t:S.t g:S.g b:S.b m:{Bfs P})
+	      {TreatStream T NSt IDP NS Port}
+    [] endTimer(ID P) then
+       ID = IDP 
+	    P = {Move St.p S St.m}
 	    NSt = {UpdateStatus P St.life St.score St.m St.spawn}
 	    NS = strat(t:S.t g:S.g b:S.b m:{Bfs P})
-	    {TreatStream T NSt IDP NS TbT}
+	    {TreatStream T NSt IDP NS Port}
 	 [] bonusSpawn(P) then
 	    NS = {UpdateTarget St.p P 0 strat(t:S.t g:S.g b:{UpdateBonuses P true S.b} m:S.m) St.m}
-	    {TreatStream T St IDP NS TbT}
+	    {TreatStream T St IDP NS Port}
 	 [] pointSpawn(P) then
 	    NS = {UpdateTarget St.p P ~1 S St.m}
-	    {TreatStream T St IDP NS TbT}
+	    {TreatStream T St IDP NS Port}
 	 [] bonusRemoved(P) then
       % current target is a bonus at position P
 	    if S.t.r == 0 andthen S.t.p == P then 
 	       NS = {FindBonus St.p strat(t:S.t g:S.g b:{UpdateBonuses P false S.b} m:S.m) St.m}
 	    else NS = S end
-	    {TreatStream T St IDP NS TbT}
+	    {TreatStream T St IDP NS Port}
 	 [] pointRemoved(P) then
       % current target is a point at position P
         if S.t.r == ~1 andthen S.t.p == P then NS = {FindBonus St.p S St.m}
         else NS = S end
-	    {TreatStream T St IDP NS TbT}
+	    {TreatStream T St IDP NS Port}
 	 [] addPoint(Add ID NewScore) then
 	    NSt = {UpdateStatus St.p St.life St.score+Add St.m St.spawn}
 	    ID = IDP
 	    NewScore = NSt.score
-	    {TreatStream T NSt IDP S TbT}
+	    {TreatStream T NSt IDP S Port}
 	 [] gotKilled(ID NewLife NewScore) then
 	    NSt = {UpdateStatus St.spawn St.life-1 St.score-Input.penalityKill St.m St.spawn}
        ID = IDP
 	    NewLife = NSt.life
 	    NewScore = NSt.score
-	    {TreatStream T NSt IDP S TbT}
+	    {TreatStream T NSt IDP S Port}
 	 [] ghostPos(ID P) then
 	    G = {UpdateGhostPos ID.id P S.g}
 	    if St.m == hunt then NS = {UpdateTarget St.p P ID.id strat(t:S.t g:G b:S.b m:S.m) St.m}
 	    else NS = strat(t:S.t g:G b:S.b m:S.m) end
-	    {TreatStream T St IDP NS TbT}
+	    {TreatStream T St IDP NS Port}
 	 [] killGhost(IDg IDp NewScore) then
 	    G = {RemoveGhost IDg.id S.g}
 	    NS = {FindGhost St.p strat(t:S.t g:G b:S.b m:S.m) St.m}
 	    NSt = {UpdateStatus St.p St.life St.score+Input.rewardKill St.m St.spawn}
 	    IDp = IDP
 	    NewScore = NSt.score
-	    {TreatStream T NSt IDP NS TbT}
+	    {TreatStream T NSt IDP NS Port}
 	 [] deathGhost(ID) then
 	    G = {RemoveGhost ID.id S.g}
 	    NS = {FindGhost St.p strat(t:S.t g:G b:S.b m:S.m) St.m}
-	    {TreatStream T St IDP NS TbT}
+	    {TreatStream T St IDP NS Port}
 	 [] setMode(M) then 
 	    NSt = {UpdateStatus St.p St.life St.score M St.spawn}
        case M of classic then NS = {FindBonus NSt.p S NSt.m}
        else NS = {FindGhost NSt.p S NSt.m}
        end
-	    {TreatStream T NSt IDP NS TbT}
-	 else {TreatStream T St IDP S TbT}
+	    {TreatStream T NSt IDP NS Port}
+	 else {TreatStream T St IDP S Port}
 	 end
       else skip
       end

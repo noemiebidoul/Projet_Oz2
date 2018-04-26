@@ -63,10 +63,10 @@ in
 
 %%%% Respawn times %%%%
    
-   RespawnTimePoint = 10
-   RespawnTimeBonus = 15
-   RespawnTimePacman = 5
-   RespawnTimeGhost = 5
+   RespawnTimePoint = 7000
+   RespawnTimeBonus = 15000
+   RespawnTimePacman = 5000
+   RespawnTimeGhost = 5000
 
 %%%% Rewards and penalities %%%%
 
@@ -77,7 +77,7 @@ in
 %%%%
 
    NbLives = 2
-   HuntTime = 50
+   HuntTime = 50000
    
 %%%% Players description %%%%
 
