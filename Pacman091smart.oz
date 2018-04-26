@@ -601,6 +601,8 @@ in
    fun{StartPlayer ID}
       Stream
       Port
+      MStream
+      MPort
       Status
       Strat
       OutOfBoard
@@ -608,14 +610,33 @@ in
       Graph = {GenerateGraph Input.map}
       OutOfBoard = pt(x:Input.nColumn+2 y:Input.nRow+2)
       {NewPort Stream Port}
+      {NewPort MStream MPort}
       thread
-	 Status = status(p:OutOfBoard life:Input.nbLives score:0 m:classic spawn:OutOfBoard)
-	 Strat = strat(t:t(p:OutOfBoard r:~2) g:nil b:nil m:nil)
-	 {TreatStream Stream Status ID Strat Input.isTurnByTurn}
+	      Status = status(p:OutOfBoard life:Input.nbLives score:0 m:classic spawn:OutOfBoard)
+	      Strat = strat(t:t(p:OutOfBoard r:~2) g:nil b:nil m:nil)
+	      {TreatStream Stream Status ID Strat Input.isTurnByTurn}
       end
+      thread {ReadStream MStream} end
       Port
    end
 
+   proc{ReadStream Stream}
+      case Stream
+      of H|T then
+         case H of move(P Current Strat Mode Wait) then 
+            if Wait then
+               local I J in
+                  {OS.rand I}
+                  J = I mod (Input.thinkMax-Input.thinkMin)
+                  {Delay J+Input.thinkMin}
+               end
+            end
+            P = {Move Current Strat Mode}
+         else skip
+         end 
+      else skip
+      end
+   end
    proc{TreatStream Stream St IDP S TbT} % has as many parameters as you want
       NSt
       NS
@@ -635,15 +656,8 @@ in
 	    P = St.p
 	    {TreatStream T St IDP S TbT}
 	 [] move(ID P) then
-       if {Not TbT} then
-         local I J in
-            {OS.rand I}
-            J = I mod (Input.thinkMax-Input.thinkMin)
-            {Delay J+Input.thinkMin}
-         end 
-       end
 	    ID = IDP 
-	    P = {Move St.p S St.m}
+	    {Send MPort move(P St.p S St.m {Not TbT})}
 	    NSt = {UpdateStatus P St.life St.score St.m St.spawn}
 	    NS = strat(t:S.t g:S.g b:S.b m:{Bfs P})
 	    {TreatStream T NSt IDP NS TbT}
