@@ -55,17 +55,17 @@ in
    NRow = 7
    NColumn = 12
    Map = [[1 1 1 1 1 1 1 1 1 1 1 1]
-	  [1 0 0 0 0 0 3 0 0 0 0 1]
+	  [1 0 0 0 0 0 0 0 0 0 0 1]
 	  [1 0 1 1 1 0 1 1 0 1 0 1]
 	  [1 0 0 0 1 0 0 1 0 1 0 1]
 	  [1 0 1 0 1 1 0 1 0 1 0 1]
-	  [1 0 1 0 2 4 0 0 2 0 0 1]
+	  [1 0 1 0 2 3 0 0 2 0 0 1]
 	  [1 1 1 1 1 1 1 1 1 1 1 1]]
 
 %%%% Respawn times %%%%
    
-   RespawnTimePoint = 3
-   RespawnTimeBonus = 3
+   RespawnTimePoint = 4
+   RespawnTimeBonus = 4
    RespawnTimePacman = 5
    RespawnTimeGhost = 5
 
@@ -78,12 +78,12 @@ in
 %%%%
 
    NbLives = 2
-   HuntTime = 5000
+   HuntTime = 15
    
 %%%% Players description %%%%
 
    NbPacman = 2
-   Pacman = [pacman001other pacman001other]
+   Pacman = [pacman091simple pacman091smart]
    ColorPacman = [yellow red]
    NbGhost = 1
    Ghost = [ghost000random]

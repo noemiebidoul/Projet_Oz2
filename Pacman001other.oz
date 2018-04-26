@@ -1,6 +1,7 @@
 %% Pacman 000 other %%
 functor
 import
+	Tk
    Input
    Browser
    OS
@@ -123,15 +124,15 @@ in
       case Status.m
       of hunt then {UpdateStrat Status.p strat(target:S.target priority:S.priority avoid:dir(n:NG s:NG e:NG w:NG)) P 3}
       [] classic then
-	 if P == {North Status.p} then strat(S.target S.priority dir(n:ID s:S.s e:S.e w:S.w))
-	 elseif P == {South Status.p} then strat(S.target S.priority dir(n:S.n s:ID e:S.e w:S.w))
-	 elseif P == {East Status.p} then strat(S.target S.priority dir(n:S.n s:S.s e:ID w:S.w))
-	 elseif P == {West Status.p} then strat(S.target S.priority dir(n:S.n s:S.s e:S.e w:ID))
+	 if P == {North Status.p} then strat(target:S.target priority:S.priority avoid:dir(n:ID s:S.avoid.s e:S.avoid.e w:S.avoid.w))
+	 elseif P == {South Status.p} then strat(target:S.target priority:S.priority avoid:dir(n:S.avoid.n s:ID e:S.avoid.e w:S.avoid.w))
+	 elseif P == {East Status.p} then strat(target:S.target priority:S.priority avoid:dir(n:S.avoid.n s:S.avoid.s e:ID w:S.avoid.w))
+	 elseif P == {West Status.p} then strat(target:S.target priority:S.priority avoid:dir(n:S.avoid.n s:S.avoid.s e:S.avoid.e w:ID))
 			%remove ghost from threats if not next to pacman
-	 elseif S.avoid.n == ID then strat(S.target S.priority dir(n:NG s:S.s e:S.e w:S.w))
-	 elseif S.avoid.s == ID then strat(S.target S.priority dir(n:n s:NG e:S.e w:S.w))
-	 elseif S.avoid.e == ID then strat(S.target S.priority dir(n:n s:S.s e:NG w:S.w))
-	 elseif S.avoid.w == ID then strat(S.target S.priority dir(n:n s:S.s e:S.e w:NG))
+	 elseif S.avoid.n == ID then strat(target:S.target priority:S.priority avoid:dir(n:NG s:S.avoid.s e:S.avoid.e w:S.avoid.w))
+	 elseif S.avoid.s == ID then strat(target:S.target priority:S.priority avoid:dir(n:S.avoid.n s:NG e:S.avoid.e w:S.avoid.w))
+	 elseif S.avoid.e == ID then strat(target:S.target priority:S.priority avoid:dir(n:S.avoid.n s:S.avoid.s e:NG w:S.avoid.w))
+	 elseif S.avoid.w == ID then strat(target:S.target priority:S.priority avoid:dir(n:S.avoid.n s:S.avoid.s e:S.avoid.e w:NG))
 	 else S
 	 end
       else S
