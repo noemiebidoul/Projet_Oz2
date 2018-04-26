@@ -3,7 +3,6 @@ functor
 import
    Pacman000random
    Ghost000random
-   Pacman091simple
    Pacman091smart
    Ghost091smart
 export
@@ -16,7 +15,6 @@ in
       case Kind
       of pacman000random then {Pacman000random.portPlayer ID}
       [] ghost000random then {Ghost000random.portPlayer ID}
-      [] pacman091simple then {Pacman091simple.portPlayer ID}
       [] pacman091smart then {Pacman091smart.portPlayer ID}
       [] ghost091smart then {Ghost091smart.portPlayer ID}
       end

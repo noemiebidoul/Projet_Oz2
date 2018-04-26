@@ -36,9 +36,6 @@ define
    Choose
    Random
    Move
-   W
-   F
-   BrowserObject
    OutOfBoard = pt(x:Input.nColumn+2 y:Input.nRow+2)
 in
 
@@ -505,19 +502,6 @@ in
 %%% CORE PROCEDURES %%%
 %%%%%%%%%%%%%%%%%%%%%%%
 
-   % Browser Object (debugging purpose)   
-   W = {New Tk.toplevel tkInit(bg:ivory)}
-   {Tk.send wm(geometry W "500x300")}
-   F = {New Tk.frame tkInit(parent : W
-			    bd     : 3
-			    bg     : white
-			    relief : groove
-			    width  : 450  
-			    height : 250)}
-   {Tk.send pack(F fill:both padx:10 pady:10 expand:true)}
-   BrowserObject = {New Browser.'class' init(origWindow: F)}
-   {BrowserObject createWindow}
-
    % ID is a <ghost> ID
    fun{StartPlayer ID}
       Stream
@@ -540,70 +524,51 @@ in
    proc{TreatStream Stream St IDG S} % has as many parameters as you want
       NSt NS Pac
    in
-      {BrowserObject browse(hello)}
       case Stream of H|T then
-         {BrowserObject browse(H)}
          case H of getId(ID) then
-            {BrowserObject browse('id 1')}
             ID = IDG
             {TreatStream T St IDG S}
          [] assignSpawn(P) then
-            {BrowserObject browse('assign 1')}
             NSt = {UpdateStatus P St.m P}
             NS = strat(t:S.t p:S.p m:{Bfs P})
-            {BrowserObject browse('assign 2')}
             {TreatStream T NSt IDG NS}
          [] spawn(ID P) then
-            {BrowserObject browse('spawn 1')}
             ID = IDG
             P = St.p
-            {BrowserObject browse('spawn 2')}
             {TreatStream T St IDG S}
          [] move(ID P) then
-            {BrowserObject browse('move 1')}
             if({Not Input.isTurnByTurn}) then
                {Delay ({OS.rand} mod (Input.thinkMax-Input.thinkMin))+Input.thinkMin}
             end
             ID = IDG
             P = {Move St.p S St.m}
-            {BrowserObject browse('move 2')}
             NSt = {UpdateStatus P St.m St.spawn}
             NS = strat(t:S.t p:S.p m:{Bfs P})
-            {BrowserObject browse('move 3')}
             {TreatStream T NSt IDG NS}
          [] gotKilled() then
-            {BrowserObject browse('killed 1')}
             NSt = {UpdateStatus St.spawn St.m St.spawn}
             {TreatStream T NSt IDG S}
          [] pacmanPos(ID P) then
-            {BrowserObject browse('pos 1')}
             Pac = {UpdatePacPos ID.id P S.p}
-            {BrowserObject browse('pos 2')}
             NS = {UpdateTarget St.p P strat(t:S.t p:Pac m:S.m)}
-            {BrowserObject browse('pos 3')}
             {TreatStream T St IDG NS}
          [] killPacman(ID) then
-            {BrowserObject browse('kil 1')}
             Pac = {RemovePac ID.id S.p}
-            {BrowserObject browse('kil 2')}
             NS = {FindPac St.p S}
-            {BrowserObject browse('kil 3')}
             {TreatStream T St IDG NS}
          [] deathPacman(ID) then
             Pac = {RemovePac ID.id S.p}
             NS = {FindPac St.p S}
             {TreatStream T St IDG NS}
          [] setMode(M) then
-            {BrowserObject browse('mod 1')}
             NSt = {UpdateStatus St.p M St.spawn}
             case M of classic then NS = {FindPac St.p S}
             else NS = S
             end
-            {BrowserObject browse('mod 2')}
             {TreatStream T NSt IDG NS}
          else {TreatStream T St IDG S}
          end
-      else {BrowserObject browse(Stream)} skip
+      else skip
       end
    end
 end
