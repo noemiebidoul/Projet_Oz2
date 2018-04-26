@@ -47,7 +47,7 @@ in
 
 %%%% Style of game %%%%
    
-   IsTurnByTurn = true
+   IsTurnByTurn = false
 
 %%%% Description of the map %%%%
    
@@ -63,10 +63,10 @@ in
 
 %%%% Respawn times %%%%
    
-   RespawnTimePoint = 10
-   RespawnTimeBonus = 15
-   RespawnTimePacman = 5
-   RespawnTimeGhost = 5
+   RespawnTimePoint = 7000
+   RespawnTimeBonus = 150000
+   RespawnTimePacman = 5000
+   RespawnTimeGhost = 5000
 
 %%%% Rewards and penalities %%%%
 
