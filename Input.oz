@@ -47,7 +47,7 @@ in
 
 %%%% Style of game %%%%
    
-   IsTurnByTurn = true
+   IsTurnByTurn = false
 
 %%%% Description of the map %%%%
    
@@ -82,10 +82,10 @@ in
 %%%% Players description %%%%
 
    NbPacman = 2
-   Pacman = [pacman091smart pacman091smart]
+   Pacman = [pacman000random pacman000random]
    ColorPacman = [yellow red]
    NbGhost = 1
-   Ghost = [ghost000random]
+   Ghost = [ghost091smart]
    ColorGhost = [green]% black red white]
 
 %%%% Thinking parameters (only in simultaneous) %%%%
