@@ -1,4 +1,3 @@
-%% Input %%
 functor
 export
    isTurnByTurn:IsTurnByTurn
@@ -55,17 +54,17 @@ in
    NRow = 7
    NColumn = 12
    Map = [[1 1 1 1 1 1 1 1 1 1 1 1]
-	  [1 0 0 0 0 0 0 0 0 0 0 1]
+	  [1 0 0 4 0 0 3 0 0 0 0 1]
 	  [1 0 1 1 1 0 1 1 0 1 0 1]
 	  [1 0 0 0 1 0 0 1 0 1 0 1]
 	  [1 0 1 0 1 1 0 1 0 1 0 1]
-	  [1 0 1 0 2 3 0 0 2 0 0 1]
+	  [1 0 1 4 2 4 0 0 2 0 0 1]
 	  [1 1 1 1 1 1 1 1 1 1 1 1]]
 
 %%%% Respawn times %%%%
    
-   RespawnTimePoint = 4
-   RespawnTimeBonus = 4
+   RespawnTimePoint = 10
+   RespawnTimeBonus = 15
    RespawnTimePacman = 5
    RespawnTimeGhost = 5
 
@@ -78,12 +77,12 @@ in
 %%%%
 
    NbLives = 2
-   HuntTime = 15
+   HuntTime = 50
    
 %%%% Players description %%%%
 
    NbPacman = 2
-   Pacman = [pacman091simple pacman091smart]
+   Pacman = [pacman091smart pacman091smart]
    ColorPacman = [yellow red]
    NbGhost = 1
    Ghost = [ghost000random]

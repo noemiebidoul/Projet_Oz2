@@ -51,6 +51,7 @@ in
 	       else
 		  H|{Remove T X}
 	       end
+	    [] nil then nil
 	    end
 	 end
 	 S := {Remove @S X}
@@ -58,14 +59,18 @@ in
    end
 
    fun {Contains S X}
-      case @S of H|T then
-	 if H==X then true
-	 else
-	    {Contains T X}
+      local Aux in
+	 fun {Aux L X}
+	    case L of H|T then
+	       if H==X then true
+	       else
+		  {Aux T X}
+	       end
+	    [] nil then false
+	    end
 	 end
-      [] nil then false
+	 {Aux @S X}
       end
    end
-   
 
 end

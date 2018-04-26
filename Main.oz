@@ -17,13 +17,19 @@ define
    Order
    Shuffle
    PortMain
-   StreamMain
    PortPacmans
-   StreamPacmans
    PortGhosts
+   PortBoard
+   PortObjects
+   StreamMain
+   StreamPacmans
    StreamGhosts
+   StreamBoard
+   StreamObjects
    ReadStreamPlayers
    ReadStreamMain
+   ReadStreamBoard
+   ReadStreamObjects
    NbPlayer
    Start
    Turn
@@ -40,7 +46,10 @@ define
    GetSpawn
    EatPoint
    EatBonus
-   GhostEatPacman
+   EatPacman
+   EatGhost
+   GetWinner
+   Alive
 in
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -142,10 +151,8 @@ in
 
 	       % Walkable place i.e. spawn for point
 	       if H==0 then
-
-		  {Stack.push Board.M.N 'walkable'}
-		  {Stack.push Board.M.N 'point'}
-		  
+		  {Send PortBoard push(M N 'walkable')}
+		  {Send PortBoard push(M N 'point')}
 		  {Send WindowPort initPoint(P)}
 		  {Send WindowPort spawnPoint(P)}
 
@@ -154,15 +161,11 @@ in
 		  case @ToSpawnP
 		  of nil then skip % Each pacman already has a spawn
 		  [] (P1|P2) then
-
 		     SpawnsP.(P1.id.id) = P
-		     
 		     {Send WindowPort initPacman(P1.id)}
 		     {Send P1.port assignSpawn(P)}
-
-		     {Stack.push Board.M.N 'walkable'}
+		     {Send PortBoard push(M N 'walkable')}
 		     {Respawn P1 P}
-
 		     ToSpawnP := P2
 		  
 		  end
@@ -172,32 +175,24 @@ in
 		  case @ToSpawnG
 		  of nil then skip % Each ghost already has a spawn
 		  [] G1|G2 then
-
-		     SpawnsG.(G1.id.id) = P
-		     
+		     SpawnsG.(G1.id.id) = P		     
 		     {Send WindowPort initGhost(G1.id)}
 		     {Send G1.port assignSpawn(P)}
-
-		     {Stack.push Board.M.N 'walkable'}
-		     {Respawn G1 P}
-		     
-		     ToSpawnG := G2
-		  
+		     {Send PortBoard push(M N 'walkable')}
+		     {Respawn G1 P}		     
+		     ToSpawnG := G2		  
 		  end
 
 	       % Spawn for bonus
 	       elseif H==4 then
-
-		  {Stack.push Board.M.N 'walkable'}
-		  {Stack.push Board.M.N 'bonus'}
-		  
+		  {Send PortBoard push(M N 'walkable')}
+		  {Send PortBoard push(M N 'bonus')}
 		  {Send WindowPort initBonus(P)}
 		  {Send WindowPort spawnBonus(P)}
 
 	       % Wall
 	       elseif H==1 then
-		  {Stack.push Board.M.N 'wall'}
-
+		  {Send PortBoard push(M N 'wall')}
 	       else skip
 	       end
 	    end
@@ -249,7 +244,7 @@ in
    %        on the local dynamic Board + warns the concerned
    %        player, and all the players of the opposite kind.
    proc {Respawn Player Spawn}
-      {Stack.push Board.(Spawn.y).(Spawn.x) Player}
+      {Send PortBoard push(Spawn.y Spawn.x Player)}
       case Player.id of pacman(id:_ color:_ name:_) then
 	 {Send WindowPort spawnPacman(Player.id Spawn)}
 	 {Send PortGhosts pacmanPos(Player.id Spawn)}
@@ -266,9 +261,9 @@ in
    % Moves the player of player id 'Player' from
    % 'CurPos' to 'NextPos' on the GUI and the local
    % Board, and warns the players from the opposite kind.
-   proc {Move Player CurPos NextPos}   
-      {Stack.erase Board.(CurPos.y).(CurPos.x) Player}
-      {Stack.push Board.(NextPos.y).(NextPos.x) Player}
+   proc {Move Player CurPos NextPos}
+      {Send PortBoard erase(CurPos.y CurPos.x Player)}
+      {Send PortBoard push(NextPos.y NextPos.x Player)}
       case Player.id of pacman(id:_ color:_ name:_) then
 	 {Send WindowPort movePacman(Player.id NextPos)}
 	 {Send PortGhosts pacmanPos(Player.id NextPos)}
@@ -283,21 +278,21 @@ in
    % disapearing
    proc {EatPoint Pacman Pos}    
       {Send WindowPort hidePoint(Pos)}
-      {Stack.erase Board.(Pos.y).(Pos.x) 'point'}
+      {Send PortBoard erase(Pos.y Pos.x 'point')}
       local RespawnTimePoint ID NewScore in
 	 RespawnTimePoint = Input.respawnTimePoint-1
 	 {Send PortMain spawnPoint(Pos RespawnTimePoint)}
 	 {Send Pacman.port addPoint(Input.rewardPoint ID NewScore)}
-	 {Send WindowPort scoreUpdate(Pacman.id NewScore)}
+	 {Send WindowPort scoreUpdate(Pacman.id NewScore)} 
       end
-      {Send PortPacmans pointRemoved(Pos)}     
+      {Send PortPacmans pointRemoved(Pos)}    
    end
 
    proc {EatBonus Pacman Pos}
-      HuntMode:=true
+      {Send PortObjects huntMode(true)}
       {Send WindowPort hideBonus(Pos)}
       {Send WindowPort setMode('hunt')}
-      {Stack.erase Board.(Pos.y).(Pos.x) 'bonus'}
+      {Send PortBoard erase(Pos.y Pos.x 'bonus')}
       local RespawnTimeBonus in
 	 RespawnTimeBonus = Input.respawnTimeBonus-1
 	 {Send PortMain spawnBonus(Pos RespawnTimeBonus)}
@@ -308,9 +303,63 @@ in
       {Send PortGhosts setMode('hunt')}
    end
 
+   fun {EatPacman Ghost Pacman Pos ActiveKind}
+      {Send PortBoard erase(Pos.y Pos.x Pacman)}
+      {Send WindowPort hidePacman(Pacman.id)}
+      {Send Ghost.port killPacman(Pacman.id)}
+      {Send PortGhosts deathPacman(Pacman.id)}
+      
+      local ID NewScore NewLife in
+	 {Send Pacman.port gotKilled(ID NewLife NewScore)}
+	 {Send WindowPort lifeUpdate(Pacman.id NewLife)}
+	 {Send WindowPort scoreUpdate(Pacman.id NewScore)}
+
+	 if ActiveKind == 'P' then
+	    if NewLife>0 then
+	       result(state:'idle' nextPos:{GetSpawn Pacman.id})
+	    else
+	       {Send PortObjects deathPacman}
+	       result(state:'dead' nextPos:{GetSpawn Pacman.id})
+	    end
+	
+	 elseif ActiveKind == 'G' then
+	    if NewLife>0 then
+	       local RespawnTime in
+		  RespawnTime = Input.respawnTimePacman-1
+		  {Send PortMain idle(Pacman RespawnTime)}
+	       end
+	    else
+	       {Send PortObjects deathPacman}
+	       skip
+	    end
+	    result(state:'active' nextPos:Pos)
+	 end
+      end
+   end
+
+   fun {EatGhost Ghost Pacman Pos ActiveKind}
+      {Send PortBoard erase(Pos.y Pos.x Ghost)}
+      {Send WindowPort hideGhost(Ghost.id)}
+      {Send PortPacmans deathGhost(Ghost.id)}
+      {Send Ghost.port gotKilled()}
+      local ID NewScore in
+	 {Send Pacman.port killGhost(Ghost.id ID NewScore)}
+	 {Send WindowPort scoreUpdate(Pacman.id NewScore)}
+      end
+      if ActiveKind == 'P' then
+	 local RespawnTime in
+	    RespawnTime = Input.respawnTimeGhost-1
+	    {Send PortMain idle(Ghost RespawnTime)}
+	 end
+	 result(state:'active' nextPos:Pos)
+      elseif ActiveKind == 'G' then
+	 result(state:'idle' nextPos:{GetSpawn Ghost.id})
+      end
+   end
+
    fun {Turn Player CurPos}
       local ID NextPos O in
-	 
+
 	 {Send Player.port move(ID NextPos)}
 
 	 % Checks the answer's format & provider
@@ -318,40 +367,57 @@ in
 	    case NextPos of pt(x:N y:M) then
 
 	       % Item on position where the player wants to move
-	       O = {Stack.peek Board.M.N}
+	       local O in
+		  {Send PortBoard peek(M N O)}
 
 	       % Reacts based upon this position, and
 	       % wether the player is a Pacman or Ghost
-	       case O
-	       of 'wall' then
-		  result(state:'active' nextPos:CurPos)
-	       else
+		  case O
+		  of 'wall' then
+		     result(state:'active' nextPos:CurPos)
+		  else
 
-		  {Move Player CurPos NextPos}
+		     {Move Player CurPos NextPos}
 		  
-		  case Player.id
-		  of pacman(id:_ color:_ name:_) then
-		     case O
-		     of 'point' then
-			{EatPoint Player NextPos}
-			result(state:'active' nextPos:NextPos)
+		     case Player.id
+		     of pacman(id:_ color:_ name:_) then
+			case O
+			of 'point' then
+			   {EatPoint Player NextPos}
+			   result(state:'active' nextPos:NextPos)
 			
-		     [] 'bonus' then
-			{EatBonus Player NextPos}
-			result(state:'active' nextPos:NextPos)
+			[] 'bonus' then
+			   {EatBonus Player NextPos}
+			   result(state:'active' nextPos:NextPos)
 			
-		     [] player(port:_ id:ghost(id:_ color:_ name:_)) then
-			result(state:'active' nextPos:NextPos)
-		     else
-			result(state:'active' nextPos:NextPos)
-		     end
+			[] player(port:_ id:ghost(id:_ color:_ name:_)) then
+			   local InHuntMode in
+			      {Send PortObjects inHuntMode(InHuntMode)}
+			      if InHuntMode then
+				 {EatGhost O Player NextPos 'P'}
+			      else
+				 {EatPacman O Player NextPos 'P'}
+			      end
+			   end
+			else
+			   result(state:'active' nextPos:NextPos)
+			end
 		     
-		  [] ghost(id:_ color:_ name:_) then
-		     case O
-		     of player(port:_ id:pacman(id:_ color:_ name:_)) then
-			result(state:'active' nextPos:NextPos)
-		     else
-			result(state:'active' nextPos:NextPos)
+		     [] ghost(id:_ color:_ name:_) then
+			case O
+			of player(port:_ id:pacman(id:_ color:_ name:_)) then
+			   local InHuntMode in
+			      {Send PortObjects inHuntMode(InHuntMode)}
+			      if InHuntMode then
+				 {EatGhost Player O NextPos 'G'}
+			      else
+				 {EatPacman Player O NextPos 'G'}
+			      end
+			   end
+			
+			else
+			   result(state:'active' nextPos:NextPos)
+			end
 		     end
 		  end
 	       end
@@ -366,6 +432,25 @@ in
       [] ghost(id:IDg color:_ name:_) then
 	 SpawnsG.IDg
       end
+   end
+
+   fun {GetWinner}
+      local Aux in
+	 fun {Aux L HighestScore ID}
+	    case L of H|T then
+	       local NewScore Id in
+		  {Send H.port addPoint(0 Id NewScore)}
+		  if NewScore > HighestScore then
+		     {Aux T NewScore H.id}
+		  else
+		     {Aux T HighestScore ID}
+		  end
+	       end
+	    [] nil then ID
+	    end
+	 end
+	 {Aux Pacmans ~10000000 Pacmans.1.id}
+      end   
    end
    
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%%
@@ -384,95 +469,113 @@ in
    end
    
    proc {ReadStreamMain St}
-      local Play in
+
+      local Over in
+	 {Send PortObjects gameOver(Over)}
+	 if Over then {Send WindowPort displayWinner({GetWinner})}
+	 else
+      
+	    local Play in
 	 
-	 proc {Play Player CurPos}
-	    local Result in
-	       Result = {Turn Player CurPos}
-	       if Result.state == 'active' then
-		  {Send PortMain replay(Player Result.nextPos)}
-	       elseif Result.state == 'idle' then
-		  local RespawnTime in
-		     case Player.id of pacman(id:_ color:_ name:_) then
-			RespawnTime = Input.respawnTimePacman-1
-		     else
-			RespawnTime = Input.respawnTimeGhost-1
+	       proc {Play Player CurPos}
+		  local Result in
+		     Result = {Turn Player CurPos}
+		     if Result.state == 'active' then
+			{Send PortMain replay(Player Result.nextPos)}
+		     elseif Result.state == 'idle' then
+			local RespawnTime in
+			   case Player.id of pacman(id:_ color:_ name:_) then
+			      RespawnTime = Input.respawnTimePacman-1
+			   else
+			      RespawnTime = Input.respawnTimeGhost-1
+			   end
+			   {Send PortMain idle(Player RespawnTime)}
+			end
+		     elseif Result.state == 'dead' then
+			skip
 		     end
-		     {Send PortMain idle(Player RespawnTime)}
 		  end
-	       elseif Result.state == 'dead' then
-		  skip
 	       end
-	    end
-	 end
 	 
-	 case St of H|T then
-	    case H
-
-	    % First turn of a player   
-	    of start(Player) then
-	       {Play Player {GetSpawn Player.id}}
-
-	    % Player can replay   
-	    [] replay(Player CurPos) then
-	       %if {Stack.contains Board.(CurPos.y).(CurPos.x) Player} then
-	       {Play Player CurPos}
-	       % Player has been killed before it's turn	  
-	       %else
-		%  skip
-	       %end
-  
-	    [] idle(Player N) then
-	       % Player can be respawn, and replay
-	       if (N==0) then
-		  {Respawn Player {GetSpawn Player.id}}
-		  {Play Player {GetSpawn Player.id}}
-	       % Player is idle
-	       else
-		  {Send PortMain idle(Player N-1)}
-	       end
-
-	    [] spawnPoint(Pos N) then
-	       % Point can be respawn
-	       if (N==0) then
-		  {Stack.push Board.(Pos.y).(Pos.x) 'point'}
-		  {Send WindowPort spawnPoint(Pos)}
-		  {Send PortPacmans pointSpawn(Pos)}
-	       % Point stay hidden	  
-	       else  
-		  {Send PortMain spawnPoint(Pos N-1)}
-	       end
-	    
-	    [] spawnBonus(Pos N) then
-	       % Bonus can be respawn
-	       if (N==0) then
-		  {Stack.push Board.(Pos.y).(Pos.x) 'bonus'}
-		  {Send WindowPort spawnBonus(Pos)}
-		  {Send PortPacmans bonusSpawn(Pos)}
-	       % Bonus stay hidden  
-	       else
-		  {Send PortMain spawnBonus(Pos N-1)}
-	       end
-	       
-	    [] huntTime(N) then
-	       % HuntTime is over
-	       if (N==0) then
-		  HuntMode:=false
-		  {Send WindowPort setMode('classic')}
-		  {Send PortPacmans setMode('classic')}
-		  {Send PortGhosts setMode('classic')}
-	       % HuntTime continues  
-	       else
-		  {Send PortMain huntTime(N-1)}
-	       end
+	       case St of H|T then
+		  case H
+	         
+		  of start(Player) then
+		     local Pos Contains in
+			Pos = {GetSpawn Player.id}
 		  
+			{Send PortBoard contains(Pos.y Pos.x Player Contains)}
+		 
+		  % First turn of a player
+			if Contains then
+			   {Play Player Pos}
+		  % Player has been killed before it's first turn
+			else
+			   skip
+			end
+		     end
+
+		  [] replay(Player CurPos) then
+		     local Contains in
+			{Send PortBoard contains(CurPos.y CurPos.x Player Contains)}
+	       % Player can replay   
+			if Contains then
+			   {Play Player CurPos}
+	       % Player has been killed before it's turn	  
+			else
+			   skip
+			end
+		     end
+		  [] idle(Player N) then
+	       % Player can be respawn, and replay
+		     if (N==0) then
+			{Respawn Player {GetSpawn Player.id}}
+			{Play Player {GetSpawn Player.id}}
+	       % Player is idle
+		     else
+			{Send PortMain idle(Player N-1)}
+		     end
+		  [] spawnPoint(Pos N) then
+	       % Point can be respawn
+		     if (N==0) then
+			{Send PortBoard push(Pos.y Pos.x 'point')}
+			{Send WindowPort spawnPoint(Pos)}
+			{Send PortPacmans pointSpawn(Pos)}
+	       % Point stay hidden	  
+		     else  
+			{Send PortMain spawnPoint(Pos N-1)}
+		     end
+		  [] spawnBonus(Pos N) then
+	       % Bonus can be respawn
+		     if (N==0) then
+			{Send PortBoard push(Pos.y Pos.x 'bonus')}
+			{Send WindowPort spawnBonus(Pos)}
+			{Send PortPacmans bonusSpawn(Pos)}
+	       % Bonus stay hidden  
+		     else
+			{Send PortMain spawnBonus(Pos N-1)}
+		     end   
+		  [] huntTime(N) then
+	       % HuntTime is over
+		     if (N==0) then
+			{Send PortObjects huntMode(false)}
+			{Send WindowPort setMode('classic')}
+			{Send PortPacmans setMode('classic')}
+			{Send PortGhosts setMode('classic')}
+	       % HuntTime continues  
+		     else
+			{Send PortMain huntTime(N-1)}
+		     end	  
+		  end
+		  {ReadStreamMain T}
+	       [] nil then
+		  {Send WindowPort displayWinner(Order.1.2)}
+	       end
 	    end
-	    {ReadStreamMain T}
-	 [] nil then
-	    {Send WindowPort displayWinner(Order.1.2)}
 	 end
       end
    end
+
 
    proc {ReadStreamPlayers Stream ListPlayer}
       local TellPlayer in
@@ -491,6 +594,32 @@ in
 	 end
       end    
    end
+
+   proc {ReadStreamBoard Stream}
+      case Stream of H|T then
+	 case H
+	 of push(M N E) then {Stack.push Board.M.N E}
+	 [] erase(M N E) then {Stack.erase Board.M.N E}
+	 [] contains(M N E C) then C = {Stack.contains Board.M.N E}
+	 [] peek(M N O) then O = {Stack.peek Board.M.N}
+	 [] nil then skip
+	 end
+	 {ReadStreamBoard T}
+      end
+   end
+
+   proc {ReadStreamObjects Stream}
+      case Stream of H|T then
+	 case H
+	 of huntMode(M) then HuntMode := M
+	 [] inHuntMode(M) then M = @HuntMode 
+	 [] deathPacman then Alive := @Alive-1
+	 [] gameOver(Over) then Over = (@Alive==0)
+	 [] nil then skip
+	 end
+	 {ReadStreamObjects T}
+      end
+   end
    
 %%%%%%%%%%%%
 %%% MAIN %%%
@@ -502,10 +631,12 @@ in
    % Open window
    {Send WindowPort buildWindow}
 
-   % Create port objects for Main, Pacmans and Ghosts
+   % Create port objects for Main, Pacmans, Ghosts and dynamic variables
    {NewPort StreamMain PortMain}
    {NewPort StreamPacmans PortPacmans}
    {NewPort StreamGhosts PortGhosts}
+   {NewPort StreamBoard PortBoard}
+   {NewPort StreamObjects PortObjects}
 
    % Create random order between players
    Pacmans = {Shuffle {InitPlayers 'P'} Input.nbPacman}
@@ -520,12 +651,13 @@ in
    HuntMode = {NewCell false}
    SpawnsP = {Tuple.make 's' Input.nbPacman}
    SpawnsG = {Tuple.make 's' Input.nbGhost}
+   Alive = {NewCell Input.nbPacman}
    
    % Initialize and spawn players/items on GUI & local Board
    {FirstSpawns Input.map WindowPort {NewCell Pacmans} {NewCell Ghosts}}
 
    % Browser Object (debugging purpose)   
-   W = {New Tk.toplevel tkInit(bg:ivory)}
+   W = {New Tk.toplevel tkInit(bg:red)}
    {Tk.send wm(geometry W "500x300")}
    F = {New Tk.frame tkInit(parent : W
 			    bd     : 3
@@ -535,8 +667,9 @@ in
 			    height : 250)}
    {Tk.send pack(F fill:both padx:10 pady:10 expand:true)}
    BrowserObject = {New Browser.'class' init(origWindow: F)}
+   %{BrowserObject browse(StreamMain)}
    {BrowserObject createWindow}
-   
+		   
    if Input.isTurnByTurn then
    
       {Start Order}
@@ -549,6 +682,12 @@ in
       end
       thread
 	 {ReadStreamPlayers StreamGhosts Ghosts}
+      end
+      thread
+	 {ReadStreamBoard StreamBoard}
+      end
+      thread
+	 {ReadStreamObjects StreamObjects}
       end
 	 
    else

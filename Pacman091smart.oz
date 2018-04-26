@@ -344,11 +344,8 @@ in
    end
 
    % Returns a <strategy> where the <traget> is updated if it is a better <target>.
-   fun{UpdateTarget Position Target Rank Strat}
-      G
-   in
-      % classic mode
-      if Rank =< 0 then
+   fun{UpdateTarget Position Target Rank Strat Mode}
+      fun{UT Position Target Rank Strat}
          % Better rank
          if Rank > Strat.t.r then strat(t:t(p:Target r:Rank) g:Strat.g m:Strat.m)
          % Lower rank
@@ -358,15 +355,17 @@ in
          % Same rank but closer
          else strat(t:t(p:Target r:Rank) g:Strat.g m:Strat.m)
          end
-      % hunt mode and current target is a point or a bonus
-      elseif Strat.t.r =< 0 then 
-         G = {FindClosest Position Strat.g Strat.t Strat.m g(id:Input.nbGhost+1 p:pt(x:Input.nRow*Input.nColumn y:Input.nRow*Input.nColumn))}
-         strat(t:t(p:G.p r:G.id) g:Strat.g m:Strat.m)
-      % hunt mode and current target is a ghost
-      else
-         if {Length {Path Position Target Strat.m}} > {Length {Path Position Strat.t.p Strat.m}} then Strat
-         else strat(t:t(p:Target r:Rank) g:Strat.g m:Strat.m)
+      end
+      fun{UTH Position Target ID Strat}
+         if ID < 1 then Strat
+         elseif Strat.t.r < 1 then strat(t:t(p:Target r:ID) g:Strat.g m:Strat.m)
+         elseif {Length {Path Position Target Strat.m}} > {Length {Path Position Strat.t.p Strat.m}} then Strat
+         else strat(t:t(p:Target r:ID) g:Strat.g m:Strat.m)
          end
+      end
+   in
+      if Mode == hunt andthen Strat.g \= nil then {UTH Position Target Rank Strat}
+      else {UT Position Target Rank Strat}
       end
    end
 
@@ -543,16 +542,16 @@ in
 	%  is a record that stores the target to reach and the points to avoid
 	% Move returns the new <position> of the pacman
    fun{Move Position Strat Mode}
-      Path
+      P
    in
-      if Strat.t.r == ~2 then Path = [{Random Position}]
-      else Path = {Path Position Strat.t.p Strat.m}
+      if Strat.t.r == ~2 then P = [{Random Position}]
+      else P = {Path Position Strat.t.p Strat.m}
       end
       case Mode
       of classic then
-         {Choose {ThreatLevel Position Strat.g} Position Path.1}
+         {Choose {ThreatLevel Position Strat.g} Position P.1}
       [] hunt then
-         {Hunt {ThreatLevel Position Strat.g} Position Path.1}
+         {Hunt {ThreatLevel Position Strat.g} Position P.1}
       end
    end
 
@@ -600,6 +599,7 @@ in
    in
       case Stream
       of H|T then
+      %{BrowserObject browse(IDP#H)}
 	 case H
 	 of getID(ID) then 
 	    ID = IDP
@@ -608,23 +608,22 @@ in
 	    NSt = {UpdateStatus P St.life 0 classic P}
        NS = strat(t:t(p:P r:~2) g:nil m:{Bfs P})
 	    {TreatStream T NSt IDP NS}
+    [] spawn(ID P) then
+       ID = IDP
+       P = St.p
+       {TreatStream T St IDP S}
 	 [] move(ID P) then
 	    ID = IDP 
 	    P = {Move St.p S St.m}
 	    NSt = {UpdateStatus P St.life St.score St.m St.spawn}
+       {BrowserObject browse(IDP#NSt)}
        NS = strat(t:S.t g:S.g m:{Bfs P})
 	    {TreatStream T NSt IDP NS}
 	 [] bonusSpawn(P) then
-      if St.m == classic then NS = {UpdateTarget St.p P 0 S}
-      % hunt mode but no more ghost on the board
-      elseif S.g == nil then NS = {UpdateTarget St.p P 0 S}
-      else NS = S end
+      NS = {UpdateTarget St.p P 0 S St.m}
 	    {TreatStream T St IDP NS}
 	 [] pointSpawn(P) then
-      if St.m == classic then NS = {UpdateTarget St.p P ~1 S}
-      % hunt mode but no more ghost on the board
-      elseif S.g == nil then NS = {UpdateTarget St.p P ~1 S}
-      else NS = S end
+      NS = {UpdateTarget St.p P ~1 S St.m}
 	    {TreatStream T St IDP NS}
 	 [] bonusRemoved(P) then
       % current target is a bonus at position P
@@ -649,7 +648,7 @@ in
 	    {TreatStream T NSt IDP S}
 	 [] ghostPos(ID P) then
       G = {UpdateGhostPos ID P S.g}
-      if St.m == hunt then NS = {UpdateTarget St.p P ID strat(t:S.t g:G m:S.m)}
+      if St.m == hunt then NS = {UpdateTarget St.p P ID.id strat(t:S.t g:G m:S.m) St.m}
       else NS = strat(t:S.t g:G m:S.m) end
 	   {TreatStream T St IDP NS}
 	 [] killGhost(IDg IDp NewScore) then
@@ -658,9 +657,9 @@ in
 	    NewScore = NSt.score
 	    {TreatStream T NSt IDP S}
 	 [] deathGhost(ID) then
-      G = {RemoveGhost ID S.g}
+      G = {RemoveGhost ID.id S.g}
       Tar = {FindClosest St.p G t(p:St.p r:~2) S.m g(id:Input.nbGhost+1 p:pt(x:Input.nRow*Input.nColumn y:Input.nRow*Input.nColumn))}
-      if St.m == hunt then NS = {UpdateTarget St.p T.p T.r strat(t:t(p:St.p r:~2) g:G m:S.m)}
+      if St.m == hunt then NS = {UpdateTarget St.p T.p T.r strat(t:t(p:St.p r:~2) g:G m:S.m) St.m}
       else NS = strat(t:S.t g:G m:S.m) end
 	    {TreatStream T St IDP S}
 	 [] setMode(M) then 
@@ -671,5 +670,4 @@ in
       else skip
       end
    end
-
 end

@@ -106,11 +106,7 @@ in
 	%  is a record that stores the target to reach and the points to avoid
 	% Move returns the new <position> of the pacman
    fun{Move Position}
-      if {Find {North Position}} \= 1 then 
-	  	{BrowserObject browse(Position)}
-		{BrowserObject browse({North Position})}
-		{BrowserObject browse({Find {North Position}})}
-	  	{North Position}
+      if {Find {North Position}} \= 1 then {North Position}
 	  elseif {Find {South Position}} \= 1 then {South Position}
 	  elseif {Find {East Position}} \= 1 then {East Position}
 	  else {West Position}
