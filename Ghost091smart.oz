@@ -1,6 +1,5 @@
 functor
 import
-   Tk
    Input
    Browser
    OS
@@ -40,7 +39,7 @@ define
 in
 
    % We define here the following types :
-	% <status> ::= status(p:<position> m:<mode> spawn:<position>)
+    % <status> ::= status(p:<position> m:<mode> spawn:<position>)
    % <strategy> ::= strat(t:<position> p:<pacmans> m:<map>)
    % <map> ::= <map>
    %         | <edge>
@@ -49,7 +48,6 @@ in
    %            | <pacman>
    %            | nil
    % <pacman> ::= p(id:<idNumG> p:<position>)
-   % <bonus> ::= b(p:<position> v:<bool>)
    % <graph> ::= <graph>
    %           | <node>
    %           | nil
@@ -59,7 +57,7 @@ in
    %             | nil
    % <edge> ::= edge(v:<position> w:<position>)
    % <threat> ::= pos(p:<position> l:<level>)
-   % <level> ::= 0|1|2|3
+   % <level> ::= ~1|0|1|2
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%% PROCEDURES FOR GRAPH %%%

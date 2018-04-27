@@ -1,11 +1,9 @@
 %% Pacman 000 other %%
 functor
 import
-   Tk
    Input
    Browser
    OS
-   System
 export
    portPlayer:StartPlayer
 define   
@@ -72,7 +70,7 @@ in
    %             | nil
    % <edge> ::= edge(v:<position> w:<position>)
    % <threat> ::= pos(p:<position> l:<level>)
-   % <level> ::= 0|1|2|3
+   % <level> ::= ~1|0|1|2|
 
 %%%%%%%%%%%%%%%%%%%%%%%%%%%%
 %%% PROCEDURES FOR GRAPH %%%
@@ -625,7 +623,7 @@ in
       case Stream
       of H|T then
 	 case H
-	 of getID(ID) then 
+	 of getId(ID) then 
 	    ID = IDP
 	    {TreatStream T St IDP S}
 	 [] assignSpawn(P) then

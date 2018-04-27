@@ -30,7 +30,6 @@ define
    ReadStreamMain
    ReadStreamBoard
    ReadStreamObjects
-   NbPlayer
    Start
    Turn
    W
@@ -667,7 +666,6 @@ in
    Board = {CreateMap Input.nRow Input.nColumn}
 
    % Useful variables
-   NbPlayer = Input.nbPacman + Input.nbGhost
    HuntMode = {NewCell false}
    SpawnsP = {Tuple.make 's' Input.nbPacman}
    SpawnsG = {Tuple.make 's' Input.nbGhost}
