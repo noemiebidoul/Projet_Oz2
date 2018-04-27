@@ -352,69 +352,70 @@ in
    fun {Turn Player CurPos}
       local ID NextPos O in
 
-	 {Send Player.port move(ID NextPos)}
+		{Send Player.port move(ID NextPos)}
 
-	 % Checks the answer's format & provider
-	 if ID==Player.id then
-	    case NextPos of pt(x:N y:M) then
+		% Checks the answer's format & provider
+		if ID == Player.id then
+			case NextPos of pt(x:N y:M) then
 
-	       % Item on position where the player wants to move
-	       local O in
-		  {Send PortBoard peek(M N O)}
+			% Item on position where the player wants to move
+			local O in
+			{Send PortBoard peek(M N O)}
 
-	       % Reacts based upon this position, and
-	       % wether the player is a Pacman or Ghost
-		  case O
-		  of 'wall' then
-		     result(state:'active' nextPos:CurPos)
-		  else
-
-		     {Move Player CurPos NextPos}
-		  
-		     case Player.id
-		     of pacman(id:_ color:_ name:_) then
+			% Reacts based upon this position, and
+			% wether the player is a Pacman or Ghost
 			case O
-			of 'point' then
-			   {EatPoint Player NextPos}
-			   result(state:'active' nextPos:NextPos)
-			
-			[] 'bonus' then
-			   {EatBonus Player NextPos}
-			   result(state:'active' nextPos:NextPos)
-			
-			[] player(port:_ id:ghost(id:_ color:_ name:_)) then
-			   local InHuntMode in
-			      {Send PortObjects inHuntMode(InHuntMode)}
-			      if InHuntMode then
-				 {EatGhost O Player NextPos 'P'}
-			      else
-				 {EatPacman O Player NextPos 'P'}
-			      end
-			   end
+			of 'wall' then
+				result(state:'active' nextPos:CurPos)
 			else
-			   result(state:'active' nextPos:NextPos)
-			end
-		     
-		     [] ghost(id:_ color:_ name:_) then
-			case O
-			of player(port:_ id:pacman(id:_ color:_ name:_)) then
-			   local InHuntMode in
-			      {Send PortObjects inHuntMode(InHuntMode)}
-			      if InHuntMode then
-				 {EatGhost Player O NextPos 'G'}
-			      else
-				 {EatPacman Player O NextPos 'G'}
-			      end
-			   end
+
+				{Move Player CurPos NextPos}
 			
-			else
-			   result(state:'active' nextPos:NextPos)
+				case Player.id
+				of pacman(id:_ color:_ name:_) then
+				case O
+				of 'point' then
+				{EatPoint Player NextPos}
+				result(state:'active' nextPos:NextPos)
+				
+				[] 'bonus' then
+				{EatBonus Player NextPos}
+				result(state:'active' nextPos:NextPos)
+				
+				[] player(port:_ id:ghost(id:_ color:_ name:_)) then
+				local InHuntMode in
+					{Send PortObjects inHuntMode(InHuntMode)}
+					if InHuntMode then
+					{EatGhost O Player NextPos 'P'}
+					else
+					{EatPacman O Player NextPos 'P'}
+					end
+				end
+				else
+				result(state:'active' nextPos:NextPos)
+				end
+				
+				[] ghost(id:_ color:_ name:_) then
+				case O
+				of player(port:_ id:pacman(id:_ color:_ name:_)) then
+				local InHuntMode in
+					{Send PortObjects inHuntMode(InHuntMode)}
+					if InHuntMode then
+					{EatGhost Player O NextPos 'G'}
+					else
+					{EatPacman Player O NextPos 'G'}
+					end
+				end
+				
+				else
+				result(state:'active' nextPos:NextPos)
+				end
+				end
 			end
-		     end
-		  end
-	       end
-	    end
-	 end
+			end
+			end
+		else result(state:'active' nextPos:CurPos)
+		end
       end
    end
 

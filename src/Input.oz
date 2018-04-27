@@ -64,7 +64,7 @@ in
 %%%% Respawn times %%%%
    
    RespawnTimePoint = 7000
-   RespawnTimeBonus = 150000
+   RespawnTimeBonus = 15000
    RespawnTimePacman = 5000
    RespawnTimeGhost = 5000
 
@@ -77,7 +77,7 @@ in
 %%%%
 
    NbLives = 2
-   HuntTime = 10000
+   HuntTime = 50000
    
 %%%% Players description %%%%
 
@@ -85,7 +85,7 @@ in
    Pacman = [pacman000random pacman000random]
    ColorPacman = [yellow red]
    NbGhost = 1
-   Ghost = [ghost000random]
+   Ghost = [ghost091smart]
    ColorGhost = [green]% black red white]
 
 %%%% Thinking parameters (only in simultaneous) %%%%
