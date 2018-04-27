@@ -4,6 +4,7 @@ import
    QTk at 'x-oz://system/wp/QTk.ozf'
    Input
    Browser
+   OS
 export
    portWindow:StartWindow
 define
@@ -38,37 +39,72 @@ define
    
    Squares
    DrawMap
+   CD = {OS.getCWD}#'/textures'
 
    StateModification
 
+   Pacmans
+   Ghosts
+
+   Point
+   Bonus
+   Wall
+   Background
+   Title
+
 in
 
+   Pacmans = pacmans(
+		blue: {QTk.newImage photo(file:CD#'/BluePacman.gif')}
+		yellow: {QTk.newImage photo(file:CD#'/YellowPacman.gif')}
+		green: {QTk.newImage photo(file:CD#'/GreenPacman.gif')}
+		red: {QTk.newImage photo(file:CD#'/RedPacman.gif')}
+		white: {QTk.newImage photo(file:CD#'/WhitePacman.gif')}
+		black: {QTk.newImage photo(file:CD#'/BlackPacman.gif')})
+
+   Ghosts = ghosts(blue: {QTk.newImage photo(file:CD#'/BlueGhost.gif')}
+		   white: {QTk.newImage photo(file:CD#'/WhiteGhost.gif')}
+		   black: {QTk.newImage photo(file:CD#'/BlackGhost.gif')}
+		   green: {QTk.newImage photo(file:CD#'/GreenGhost.gif')}
+		   red: {QTk.newImage photo(file:CD#'/RedGhost.gif')}
+		   yellow: {QTk.newImage photo(file:CD#'/YellowGhost.gif')}
+		   other: {QTk.newImage photo(file:CD#'/Ghost.gif')})
+
+   Point = {QTk.newImage photo(file:CD#'/Point.gif')}
+   Bonus = {QTk.newImage photo(file:CD#'/Bonus.gif')}
+   Wall = {QTk.newImage photo(file:CD#'/Wall.gif')}
+   Background = {QTk.newImage photo(file:CD#'/Background.gif')}
+   Title = {QTk.newImage photo(file:CD#'/Title.gif')}
+   
 %%%%% Build the initial window and set it up (call only once)
    fun{BuildWindow}
-      Grid GridLife GridScore Toolbar Desc DescLife DescScore Window
+      Grid GridLife GridScore Toolbar Desc DescLife DescScore Window DownImage DI Space S TopImage T
    in
-      Toolbar=lr(glue:we tbbutton(text:"Quit" glue:w action:toplevel#close))
-      Desc=grid(handle:Grid height:50*Input.nRow width:50*Input.nColumn)
-      DescLife=grid(handle:GridLife height:100 width:50*Input.nbPacman)
-      DescScore=grid(handle:GridScore height:100 width:50*Input.nbPacman)
-      Window={QTk.build td(Toolbar Desc DescLife DescScore)}
+      Toolbar=lr(glue:we tbbutton(text:"Quit" glue:w action:toplevel#close) bg:c(190 190 190))    
+      Desc=grid(handle:Grid height:50*Input.nRow width:50*Input.nColumn bg:c(190 190 190))       
+      DescLife=grid(handle:GridLife height:100 width:50*Input.nColumn bg:c(190 190 190))          
+      DescScore=grid(handle:GridScore height:100 width:50*Input.nColumn bg:c(190 190 190))         
+      Space = grid(handle:S height:30 width:50*Input.nColumn bg:c(190 190 190))
+      DownImage = label(handle:DI image:Background)
+      TopImage = label(handle:T image:Title)
+      Window={QTk.build td(Toolbar TopImage Desc Space DescLife DescScore DownImage)}
   
       {Window show}
 
       % configure rows and set headers
       for N in 1..Input.nRow do
-	 {Grid rowconfigure(N minsize:50 weight:0 pad:5)}
+	 {Grid rowconfigure(N minsize:50 weight:0 pad:0)}
       end
       % configure columns and set headers
       for N in 1..Input.nColumn do
-	 {Grid columnconfigure(N minsize:50 weight:0 pad:5)}
+	 {Grid columnconfigure(N minsize:50 weight:0 pad:0)}
       end
       % configure lifeboard
       {GridLife rowconfigure(1 minsize:50 weight:0 pad:5)}
       {GridLife columnconfigure(1 minsize:50 weight:0 pad:5)}
       {GridLife configure(label(text:"life" width:1 height:1) row:1 column:1 sticky:wesn)}
       for N in 1..(Input.nbPacman) do
-	 {GridLife columnconfigure(N+1 minsize:50 weight:0 pad:5)}
+	 {GridLife columnconfigure(N+1 minsize:50 weight:0 pad:0)}
       end
       % configure scoreboard
       {GridScore rowconfigure(1 minsize:50 weight:0 pad:5)}
@@ -76,6 +112,13 @@ in
       {GridScore configure(label(text:"score" width:1 height:1) row:1 column:1 sticky:wesn)}
       for N in 1..(Input.nbPacman) do
 	 {GridScore columnconfigure(N+1 minsize:50 weight:0 pad:5)}
+      end
+
+      for I in 1..Input.nRow do
+	 {Grid rowconfigure(I minsize:50 weight:0)}
+      end
+      for I in 1..Input.nColumn do
+	 {Grid columnconfigure(I minsize:50 weight:0)}
       end
       
       {DrawMap Grid}
@@ -85,11 +128,11 @@ in
 
    
 %%%%% Squares of path and wall
-   Squares = square(0:label(text:"" width:1 height:1 bg:c(0 0 204))
-		    1:label(text:"" borderwidth:5 relief:raised width:1 height:1 bg:c(0 0 0))
-		    2:label(text:"" width:1 height:1 bg:c(0 0 150))
-		    3:label(text:"" width:1 height:1 bg:c(0 0 255))
-		    4:label(text:"" width:1 height:1 bg:c(0 150 150))
+   Squares = square(0:label(text:"" width:1 height:1 bg:c(161 173 255))                              % Spawn pour point
+		    1:label(text:"" image: Wall bg:c(161 173 255))                                    % Wall
+		    2:label(text:"" width:1 height:1 bg:c(161 173 255))                              % Spawn pour pacman
+		    3:label(text:"" width:1 height:1 bg:c(161 173 255))                              % Spawn pour Ghost
+		    4:label(text:"" width:1 height:1 bg:c(161 173 255))                              % Spawn pour Bonus
 		   )
    
 %%%%% Function to draw the map
@@ -115,23 +158,35 @@ in
    end
 
 %%%%% Init the pacman & ghost
+
+   % Returns the pacman state, under the form 'guiPacman(id:ID life:LH score:SH pacman:H)'
+   % ID of type <pacman>, other arguments are Handles.
    fun{InitPacman Grid ID}
       Handle HandleLife HandleScore Id Color LabelPacman LabelLife LabelScore
    in
       pacman(id:Id color:Color name:_) = ID
-      LabelPacman = label(text:"P" handle:Handle borderwidth:5 relief:raised bg:Color ipadx:5 ipady:5)
+      case Color
+      of blue then LabelPacman = label(image:Pacmans.blue text:"" handle:Handle bg:c(161 173 255))
+      [] green then LabelPacman = label(image:Pacmans.green text:"" handle:Handle bg:c(161 173 255))
+      [] yellow then LabelPacman = label(image:Pacmans.yellow text:"" handle:Handle bg:c(161 173 255))
+      [] red then LabelPacman = label(image:Pacmans.red text:"" handle:Handle bg:c(161 173 255))
+      [] white then LabelPacman = label(image:Pacmans.white text:"" handle:Handle bg:c(161 173 255))
+      [] black then LabelPacman = label(image:Pacmans.black text:"" handle:Handle bg:c(161 173 255))
+      else
+	 LabelPacman = label(image:Pacmans.red text:"" handle:Handle)
+      end
       LabelLife = label(text:Input.nbLives borderwidth:5 handle:HandleLife relief:solid bg:Color ipadx:5 ipady:5)
       LabelScore = label(text:0 borderwidth:5 handle:HandleScore relief:solid bg:Color ipadx:5 ipady:5)
-      {Grid.grid configure(LabelPacman row:0 column:0 sticky:wesn)}
+      {Grid.grid configure(LabelPacman row:0 column:0 sticky:wesn)}    
       {Grid.grid remove(Handle)}
       {Grid.life configure(LabelLife row:1 column:Id+1 sticky:wesn)}
       {Grid.score configure(LabelScore row:1 column:Id+1 sticky:wesn)}
-      {HandleLife 'raise'()}
-      {HandleScore 'raise'()}
+      {HandleLife 'raise'()}   % Display life panel for this pacman
+      {HandleScore 'raise'()}  % Display score panel for this pacman
       guiPacman(id:ID life:HandleLife score:HandleScore pacman:Handle)
    end
 
-   
+   % Return functions that take a Grid and a State in parameter
    fun{SpawnPacman Position}
       fun{$ Grid State}
 	 {Grid.grid configure(State.pacman row:Position.y column:Position.x sticky:wesn)}
@@ -155,7 +210,16 @@ in
       Handle Color LabelGhost
    in
       ghost(id:_ color:Color name:_) = ID
-      LabelGhost = label(text:"G" handle:Handle borderwidth:5 relief:raised bg:Color ipadx:5 ipady:5)
+      case Color
+      of blue then LabelGhost = label(image:Ghosts.blue text:"" handle:Handle bg:c(161 173 255))
+      [] green then LabelGhost = label(image:Ghosts.green text:"" handle:Handle bg:c(161 173 255))
+      [] yellow then LabelGhost = label(image:Ghosts.yellow text:"" handle:Handle bg:c(161 173 255))
+      [] red then LabelGhost = label(image:Ghosts.red text:"" handle:Handle bg:c(161 173 255))
+      [] white then LabelGhost = label(image:Ghosts.white text:"" handle:Handle bg:c(161 173 255))
+      [] black then LabelGhost = label(image:Ghosts.black text:"" handle:Handle bg:c(161 173 255))
+      else
+	 LabelGhost = label(image:Ghosts.other text:"" handle:Handle bg:c(161 173 255))
+      end
       {Grid.grid configure(LabelGhost row:0 column:0 sticky:wesn)}
       {Grid.grid remove(Handle)}
       guiGhost(id:ID ghost:Handle color:Color)
@@ -197,7 +261,7 @@ in
    fun{InitBonus Grid Position}
       Handle Label
    in
-      Label = label(text:"" height:1 width:1 handle:Handle bg:red)
+      Label = label(text:"" image:Bonus handle:Handle bg:c(161 173 255))
       {Grid.grid configure(Label row:0 column:0)}
       {Grid.grid remove(Handle)}
       guiBonus(position:Position bonus:Handle)
@@ -219,7 +283,7 @@ in
    fun{InitPoint Grid Position}
       Handle Label
    in
-      Label = label(text:"" height:1 width:1 handle:Handle bg:white)
+      Label = label(text:"" image:Point handle:Handle bg:c(161 173 255))
       {Grid.grid configure(Label row:0 column:0)}
       {Grid.grid remove(Handle)}
       guiPoint(position:Position point:Handle)
@@ -244,9 +308,9 @@ in
       [] guiGhost(id:_ ghost:Handle color:Color)|Next then
 	 case M
 	 of classic then
-	    {Handle set(bg:Color)}
+	    {Handle set(image:Ghosts.Color)}
 	 [] hunt then
-	    {Handle set(bg:blue)}
+	    {Handle set(image:Ghosts.other)}
 	 end
 	 State.1|{ChangeMode M Next}
       end
@@ -295,6 +359,8 @@ in
       Port
    end
 
+   % Pacmans: List of each Pacman's state
+   % Ghost: List of each Ghost' state
    proc{TreatStream Stream Grid Pacmans Ghosts Point Bonus}
       {Browser.browse Stream.1}
       case Stream
