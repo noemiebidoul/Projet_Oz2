@@ -31,7 +31,7 @@ in
    end
 
    proc {Pop S}
-      case @S of H|T then
+      case @S of _|T then
 	 S:=T
       else
 	 skip
